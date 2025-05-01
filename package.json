@@ -7,7 +7,9 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "node commonsense_qa_parse.js && node commonsense_qa_process.js"
+    "build": "node commonsense_qa_parse.js && node commonsense_qa_process.js",
+    "dev": "next dev",
+    "start": "next start"
   },
   "keywords": [],
   "author": "klntsky",
