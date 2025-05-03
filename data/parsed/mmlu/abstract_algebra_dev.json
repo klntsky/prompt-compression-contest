@@ -1,0 +1,65 @@
+[
+  {
+    "question": "Find all c in Z_3 such that Z_3[x]/(x^2 + c) is a field.",
+    "options": [
+      "0",
+      "1",
+      "2",
+      "3"
+    ],
+    "correctAnswer": "1"
+  },
+  {
+    "question": "\"Statement 1 | If aH is an element of a factor group",
+    "options": [
+      "then |aH| divides |a|. Statement 2 | If H and K are subgroups of G then HK is a subgroup of G.\"",
+      "\"True",
+      "True\"",
+      "\"False",
+      "False\"",
+      "\"True",
+      "False\"",
+      "\"False",
+      "True\""
+    ],
+    "correctAnswer": "\"True"
+  },
+  {
+    "question": "Statement 1 | Every element of a group generates a cyclic subgroup of the group. Statement 2 | The symmetric group S_10 has 10 elements.",
+    "options": [
+      "\"True",
+      "True\"",
+      "\"False",
+      "False\"",
+      "\"True",
+      "False\"",
+      "\"False",
+      "True\""
+    ],
+    "correctAnswer": "\"False"
+  },
+  {
+    "question": "Statement 1| Every function from a finite set onto itself must be one to one. Statement 2 | Every subgroup of an abelian group is abelian.",
+    "options": [
+      "\"True",
+      "True\"",
+      "\"False",
+      "False\"",
+      "\"True",
+      "False\"",
+      "\"False",
+      "True\""
+    ],
+    "correctAnswer": "\"True"
+  },
+  {
+    "question": "Find the characteristic of the ring 2Z.",
+    "options": [
+      "0",
+      "3",
+      "12",
+      "30"
+    ],
+    "correctAnswer": "0"
+  }
+]

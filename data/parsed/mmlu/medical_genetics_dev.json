@@ -1,0 +1,52 @@
+[
+  {
+    "question": "Large triplet repeat expansions can be detected by:",
+    "options": [
+      "polymerase chain reaction.",
+      "single strand conformational polymorphism analysis.",
+      "Southern blotting.",
+      "Western blotting."
+    ],
+    "correctAnswer": "Southern blotting."
+  },
+  {
+    "question": "DNA ligase is",
+    "options": [
+      "an enzyme that joins fragments in normal DNA replication",
+      "an enzyme of bacterial origin which cuts DNA at defined base sequences",
+      "an enzyme that facilitates transcription of specific genes",
+      "an enzyme which limits the level to which a particular nutrient reaches"
+    ],
+    "correctAnswer": "an enzyme that joins fragments in normal DNA replication"
+  },
+  {
+    "question": "A gene showing codominance",
+    "options": [
+      "has both alleles independently expressed in the heterozygote",
+      "has one allele dominant to the other",
+      "has alleles tightly linked on the same chromosome",
+      "has alleles expressed at the same time in development"
+    ],
+    "correctAnswer": "has both alleles independently expressed in the heterozygote"
+  },
+  {
+    "question": "Which of the following conditions does not show multifactorial inheritance?",
+    "options": [
+      "Pyloric stenosis",
+      "Schizophrenia",
+      "Spina bifida (neural tube defects)",
+      "Marfan syndrome"
+    ],
+    "correctAnswer": "Marfan syndrome"
+  },
+  {
+    "question": "The stage of meiosis in which chromosomes pair and cross over is:",
+    "options": [
+      "prophase I",
+      "metaphase I",
+      "prophase II",
+      "metaphase II"
+    ],
+    "correctAnswer": "prophase I"
+  }
+]

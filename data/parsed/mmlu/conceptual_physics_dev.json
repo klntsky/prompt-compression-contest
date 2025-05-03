@@ -1,0 +1,53 @@
+[
+  {
+    "question": "\"Compared with the mass of a uranium atom undergoing fission",
+    "options": [
+      "the combined masses of the products after fission are\"",
+      "less",
+      "more",
+      "the same",
+      "zero"
+    ],
+    "correctAnswer": "the combined masses of the products after fission are\""
+  },
+  {
+    "question": "Things that are equivalent according to the equivalence principle are",
+    "options": [
+      "space and time.",
+      "a traveling twin and a stay-at-home twin.",
+      "gravity and acceleration.",
+      "mass and energy."
+    ],
+    "correctAnswer": "gravity and acceleration."
+  },
+  {
+    "question": "Colors in a soap bubble result from light",
+    "options": [
+      "converted to a different frequency",
+      "deflection",
+      "interference",
+      "polarization"
+    ],
+    "correctAnswer": "interference"
+  },
+  {
+    "question": "A model airplane flies slower when flying into the wind and faster with wind at its back. When launched at right angles to the wind a cross wind its groundspeed compared with flying in still air is",
+    "options": [
+      "the same",
+      "greater",
+      "less",
+      "either greater or less depending on wind speed"
+    ],
+    "correctAnswer": "greater"
+  },
+  {
+    "question": "Which of these three elements has the most mass per nucleon?",
+    "options": [
+      "Hydrogen",
+      "Iron",
+      "Uranium",
+      "Same in each"
+    ],
+    "correctAnswer": "Hydrogen"
+  }
+]

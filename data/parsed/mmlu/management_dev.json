@@ -1,0 +1,52 @@
+[
+  {
+    "question": "What are the two main dimensions of the Ohio Studies into leadership?",
+    "options": [
+      "Starting position and end position",
+      "Initial environment and changed environment",
+      "Organisational structure and conditioning",
+      "Initiating structure and considerations"
+    ],
+    "correctAnswer": "Initiating structure and considerations"
+  },
+  {
+    "question": "Hygiene factors are associated with which writer?",
+    "options": [
+      "Frederick Hertzberg",
+      "D.C. McClelland",
+      "Abraham Maslow",
+      "Douglas McGregor"
+    ],
+    "correctAnswer": "Frederick Hertzberg"
+  },
+  {
+    "question": "Which element of the cultural web forms regalia?",
+    "options": [
+      "Symbols",
+      "Rituals and routines",
+      "Power structures",
+      "Control systems"
+    ],
+    "correctAnswer": "Symbols"
+  },
+  {
+    "question": "What characteristic is not a key feature of the 'open systems' model of management?",
+    "options": [
+      "Morale",
+      "Innovation",
+      "Growth resource",
+      "Adaptation"
+    ],
+    "correctAnswer": "Morale"
+  },
+  {
+    "question": "How can organisational structures that are characterised by democratic and inclusive styles of management be described?",
+    "options": [
+      "Hierarchical",
+      "Bureaucratic",
+      "Flat",
+      "Functional"
+    ],
+    "correctAnswer": "Flat"
+  }
+]

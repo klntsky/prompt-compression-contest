@@ -1,0 +1,53 @@
+[
+  {
+    "question": "Morning sickness is typically a problem:",
+    "options": [
+      "during the first trimester",
+      "during the second trimester",
+      "during the third trimester",
+      "all through the pregnancy"
+    ],
+    "correctAnswer": "during the first trimester"
+  },
+  {
+    "question": "\"A woman who knows she has active herpes and untreated syphilis but continues to have sex without informing her partners of her condition has",
+    "options": [
+      "in psychoanalytic terms:\"",
+      "a strong ego",
+      "a weak superego",
+      "a weak id",
+      "a strong superego"
+    ],
+    "correctAnswer": "a strong ego"
+  },
+  {
+    "question": "Women's ability to have multiple orgasms is primarily due to:",
+    "options": [
+      "the fact that they do not have a refractory period.",
+      "the response of the inner layers of the vagina.",
+      "having alternating orgasms in different locations.",
+      "the G-Spot."
+    ],
+    "correctAnswer": "the fact that they do not have a refractory period."
+  },
+  {
+    "question": "The nature of homosexual activities that occur during preadolescence include all but which of the following?",
+    "options": [
+      "sexual intercourse",
+      "circle jerks",
+      "exhibitionism",
+      "touching each other's genitals"
+    ],
+    "correctAnswer": "sexual intercourse"
+  },
+  {
+    "question": "The most common disorder among men who seek sexual therapy is:",
+    "options": [
+      "premature ejaculation",
+      "inhibited ejaculation",
+      "erectile disorder",
+      "ejaculatory disorder"
+    ],
+    "correctAnswer": "erectile disorder"
+  }
+]

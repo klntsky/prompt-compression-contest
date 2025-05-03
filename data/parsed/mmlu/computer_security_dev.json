@@ -1,0 +1,57 @@
+[
+  {
+    "question": "SHA-1 has a message digest of",
+    "options": [
+      "160 bits",
+      "512 bits",
+      "628 bits",
+      "820 bits"
+    ],
+    "correctAnswer": "160 bits"
+  },
+  {
+    "question": "\"_____________ can modify data on your system – so that your system doesn’t run correctly or you can no longer access specific data",
+    "options": [
+      "or it may even ask for ransom in order to give your access.\"",
+      "IM – Trojans",
+      "Backdoor Trojans",
+      "Trojan-Downloader",
+      "Ransom Trojan"
+    ],
+    "correctAnswer": "Trojan-Downloader"
+  },
+  {
+    "question": "What is ethical hacking?",
+    "options": [
+      "\"\"\"Hacking\"\" ethics so they justify unintended selfish behavior\"",
+      "\"Hacking systems (e.g.",
+      "during penetration testing) to expose vulnerabilities so they can be fixed",
+      "rather than exploited\"",
+      "Hacking into systems run by those whose ethics you disagree with",
+      "\"A slang term for rapid software development",
+      "e.g.",
+      "as part of hackathons\""
+    ],
+    "correctAnswer": "\"Hacking systems (e.g."
+  },
+  {
+    "question": "Exploitation of the Heartbleed bug permits",
+    "options": [
+      "overwriting cryptographic keys in memory",
+      "a kind of code injection",
+      "a read outside bounds of a buffer",
+      "a format string attack"
+    ],
+    "correctAnswer": "a read outside bounds of a buffer"
+  },
+  {
+    "question": "The ____________ is anything which your search engine cannot search.",
+    "options": [
+      "Haunted web",
+      "World Wide Web",
+      "Surface web",
+      "Deep Web"
+    ],
+    "correctAnswer": "Deep Web"
+  }
+]
