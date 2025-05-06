@@ -1,5 +1,4 @@
 import { TestCase, evaluatePrompt } from './evaluate';
-import 'dotenv/config';
 
 /**
  * Print progress report during test execution
@@ -37,14 +36,14 @@ export async function filterFlakyTestCases(
   params: {
     dataset: TestCase[];
     numAttempts?: number;
-    model?: string;
+    model: string;
     verbose?: boolean;
   }
 ): Promise<TestCase[]> {
   const {
     dataset,
     numAttempts = 3,
-    model = 'openai/gpt-4o-mini',
+    model,
     verbose = true
   } = params;
 

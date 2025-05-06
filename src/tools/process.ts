@@ -10,7 +10,8 @@ import 'dotenv/config';
 // Configuration
 const INPUT_DIR = 'data/parsed';
 const OUTPUT_DIR = 'data/processed';
-const MODEL = process.env.MODEL || 'openai/gpt-4o-mini';
+const DEFAULT_MODEL = 'openai/gpt-4o-mini';
+const MODEL = process.env.MODEL || DEFAULT_MODEL;
 const NUM_ATTEMPTS = process.env.NUM_ATTEMPTS ? parseInt(process.env.NUM_ATTEMPTS) : 3;
 const LIMIT_ENTRIES = process.env.LIMIT_ENTRIES ? parseInt(process.env.LIMIT_ENTRIES) : 100;
 
@@ -35,13 +36,21 @@ function printStatus(
 /**
  * Process a single dataset file
  * @param inputFile Path to the input file
+ * @param model Model to use for evaluation
+ * @param numAttempts Number of attempts per test case
+ * @param limitEntries Maximum number of entries to process
  */
-async function processFile(inputFile: string): Promise<void> {
+async function processFile(
+  inputFile: string, 
+  model: string,
+  numAttempts: number,
+  limitEntries: number
+): Promise<void> {
   // Extract dataset name from file path
   const datasetName = path.basename(inputFile, '.json');
   console.log(`\nProcessing dataset: ${datasetName}`);
   
-  const outputFile = path.join(OUTPUT_DIR, `${datasetName}.${MODEL.split('/').pop()}.json`);  
+  const outputFile = path.join(OUTPUT_DIR, `${datasetName}.${model.split('/').pop()}.json`);  
   
   try {
     const content = await fs.readFile(inputFile, 'utf-8');
@@ -49,16 +58,16 @@ async function processFile(inputFile: string): Promise<void> {
     
     console.log(`Read ${dataset.length} entries from ${inputFile}`);
     
-    const limitedDataset = dataset.slice(0, LIMIT_ENTRIES);
+    const limitedDataset = dataset.slice(0, limitEntries);
     if (limitedDataset.length < dataset.length) {
-      console.log(`Limiting to first ${LIMIT_ENTRIES} entries`);
+      console.log(`Limiting to first ${limitEntries} entries`);
     }
     
     // Use a single call to filterFlakyTestCases instead of chunking by one
     const nonFlakyEntries = await filterFlakyTestCases({
       dataset: limitedDataset,
-      numAttempts: NUM_ATTEMPTS,
-      model: MODEL,
+      numAttempts: numAttempts,
+      model: model,
       verbose: true
     });
     
@@ -89,12 +98,15 @@ async function main(): Promise<void> {
       process.exit(1);
     }
     
+    // Get model from environment or use default
+    const model = MODEL;
+    
     console.log(`Found ${inputFiles.length} dataset files to process`);
-    console.log(`Using model: ${MODEL}`);
+    console.log(`Using model: ${model}`);
     console.log(`Using ${NUM_ATTEMPTS} attempts per test case`);
 
     for (const inputFile of inputFiles) {
-      await processFile(inputFile);
+      await processFile(inputFile, model, NUM_ATTEMPTS, LIMIT_ENTRIES);
     }
 
     console.log('All datasets processed successfully!');

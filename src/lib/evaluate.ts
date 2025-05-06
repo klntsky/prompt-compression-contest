@@ -128,13 +128,13 @@ export async function evaluatePrompt(
   params: {
     testCase: TestCase;
     attempts?: number;
-    model?: string;
+    model: string;
   }
 ): Promise<boolean> {
   const { 
     testCase, 
     attempts = 1, 
-    model = 'openai/gpt-4o-mini'
+    model
   } = params;
   
   const { task, options, correctAnswer } = testCase;
@@ -178,13 +178,13 @@ export async function evaluatePromptOnTestSuite(
   params: {
     testCases: TestCase[];
     attemptsPerTest?: number;
-    model?: string;
+    model: string;
   }
 ): Promise<TestSuiteResult> {
   const {
     testCases,
     attemptsPerTest = 1,
-    model = 'openai/gpt-4o-mini'
+    model
   } = params;
   
   let passedTests = 0;
