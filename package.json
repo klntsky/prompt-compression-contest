@@ -10,8 +10,7 @@
     "prepare-dataset": "pnpm run build:parse && pnpm run build:preprocess",
     "build": "next build",
     "build:parse": "node src/prepare-dataset/commonsense_qa_parse.js && node src/prepare-dataset/mmlu_parse.js",
-    "build:preprocess": "node src/prepare-dataset/commonsense_qa_process.js",
-    "check-failures": "tsx src/tools/check_failure_frequency.ts"
+    "build:preprocess": "tsx src/tools/process.ts"
   },
   "keywords": [],
   "author": "klntsky",
