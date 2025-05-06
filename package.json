@@ -7,9 +7,10 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "pnpm run build:parse && pnpm run build:preprocess",
-    "build:parse": "node commonsense_qa_parse.js && node mmlu_parse.js",
-    "build:preprocess": "node commonsense_qa_process.js"
+    "prepare-dataset": "pnpm run build:parse && pnpm run build:preprocess",
+    "build": "next build",
+    "build:parse": "node src/prepare-dataset/commonsense_qa_parse.js && node src/prepare-dataset/mmlu_parse.js",
+    "build:preprocess": "node src/prepare-dataset/commonsense_qa_process.js"
   },
   "keywords": [],
   "author": "klntsky",
