@@ -6,6 +6,7 @@ import { glob } from 'glob';
 import { filterFlakyTestCases } from '../lib/filter-flaky-cases';
 import type { TestCase } from '../lib/evaluate';
 import 'dotenv/config';
+import _ from 'lodash';
 
 // Configuration
 const INPUT_DIR = 'data/parsed';
@@ -34,6 +35,34 @@ function printStatus(
 }
 
 /**
+ * Take a random sample from an array
+ * @param array The array to sample from
+ * @param size The size of the sample
+ * @returns A random sample of the specified size
+ */
+function getRandomSample<T>(array: T[], size: number): T[] {
+  return _.sampleSize(array, Math.min(size, array.length));
+}
+
+/**
+ * Combine arrays and remove duplicates using deep equality
+ * @param arrays Arrays to combine
+ * @returns Combined array with duplicates removed
+ */
+function combineAndDedup<T>(arrays: T[][]): T[] {
+  const combined = arrays.flat();
+  const result: T[] = [];
+  
+  for (const item of combined) {
+    if (!result.some(existingItem => _.isEqual(existingItem, item))) {
+      result.push(item);
+    }
+  }
+  
+  return result;
+}
+
+/**
  * Process a single dataset file
  * @param inputFile Path to the input file
  * @param model Model to use for evaluation
@@ -50,7 +79,7 @@ async function processFile(
   const datasetName = path.basename(inputFile, '.json');
   console.log(`\nProcessing dataset: ${datasetName}`);
   
-  const outputFile = path.join(OUTPUT_DIR, `${datasetName}.${model.split('/').pop()}.json`);  
+  const outputFile = path.join(OUTPUT_DIR, `${datasetName}.${model.split('/').pop()}.${numAttempts}_attempts.json`);  
   
   try {
     const content = await fs.readFile(inputFile, 'utf-8');
@@ -58,28 +87,43 @@ async function processFile(
     
     console.log(`Read ${dataset.length} entries from ${inputFile}`);
     
-    const limitedDataset = dataset.slice(0, limitEntries);
-    if (limitedDataset.length < dataset.length) {
-      console.log(`Limiting to first ${limitEntries} entries`);
-    }
+    // Take a random sample instead of first N entries
+    const sampledDataset = getRandomSample(dataset, limitEntries);
+    console.log(`Randomly sampled ${sampledDataset.length} entries from dataset`);
     
     // Use a single call to filterFlakyTestCases instead of chunking by one
     const nonFlakyEntries = await filterFlakyTestCases({
-      dataset: limitedDataset,
+      dataset: sampledDataset,
       numAttempts: numAttempts,
       model: model,
       verbose: true
     });
     
     // Print status at the end
-    printStatus(limitedDataset.length, limitedDataset.length, nonFlakyEntries.length);
+    printStatus(sampledDataset.length, sampledDataset.length, nonFlakyEntries.length);
 
+    // Check if output file exists and combine with existing data
+    let existingEntries: TestCase[] = [];
+    try {
+      const existingContent = await fs.readFile(outputFile, 'utf-8');
+      existingEntries = JSON.parse(existingContent) as TestCase[];
+      console.log(`Found ${existingEntries.length} existing entries in ${outputFile}`);
+    } catch (error) {
+      // File doesn't exist or can't be read, proceed with empty array
+      console.log(`No existing file found at ${outputFile}, will create new file`);
+    }
+    
+    // Combine new entries with existing ones and remove duplicates
+    const combinedEntries = combineAndDedup([existingEntries, nonFlakyEntries]);
+    
+    // Create output directory if it doesn't exist
     await fs.mkdir(path.dirname(outputFile), { recursive: true });
-    await fs.writeFile(outputFile, JSON.stringify(nonFlakyEntries, null, 2), 'utf-8');
+    await fs.writeFile(outputFile, JSON.stringify(combinedEntries, null, 2), 'utf-8');
 
     console.log(`✅ Successfully processed ${datasetName}`);
-    console.log(`Filtered ${limitedDataset.length - nonFlakyEntries.length} flaky entries (${Math.round((limitedDataset.length - nonFlakyEntries.length) / limitedDataset.length * 100)}%)`);
-    console.log(`Wrote ${nonFlakyEntries.length} entries to ${outputFile}`);
+    console.log(`Filtered ${sampledDataset.length - nonFlakyEntries.length} flaky entries (${Math.round((sampledDataset.length - nonFlakyEntries.length) / sampledDataset.length * 100)}%)`);
+    console.log(`Combined with ${existingEntries.length} existing entries, removed ${existingEntries.length + nonFlakyEntries.length - combinedEntries.length} duplicates`);
+    console.log(`Wrote ${combinedEntries.length} entries to ${outputFile}`);
   } catch (error) {
     console.error(`❌ Failed to process ${datasetName}:`, error);
   }

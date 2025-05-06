@@ -24,7 +24,7 @@ function printProgressReport(
   const status = `Progress: ${processedCount}/${totalEntries} (${progressPct}%) | ${failureStats} | Passed all: ${passedAllAttempts} (${passPct}%)`;
   
   // Clear line and print status
-  process.stdout.write(`\r${' '.repeat(100)}\r${status}`);
+  process.stdout.write(`\r${' '.repeat(status.length)}\r${status}`);
 }
 
 /**
@@ -83,13 +83,10 @@ export async function filterFlakyTestCases(
         numAttempts
       );
     }
-    
-    // Add a small delay between entries to be rate-limit friendly
-    await new Promise(r => setTimeout(r, 500));
   }
   
   if (verbose) {
-    console.log('\n');
+    console.log();
   }
   
   return nonFlakyEntries;

@@ -24,9 +24,13 @@ function parseLine(line) {
   const key      = cols[cols.length - 1].trim().toUpperCase()
   const idx = key.charCodeAt(0) - 65  // 'A'.charCodeAt(0) === 65
   if (idx < 0 || idx >= options.length) {
-    throw new Error(`Invalid key "${key}" for [${options.join(', ')}]`)
+    return []; // throw new Error(`Invalid key "${key}" for [${options.join(', ')}]`)
   }
-  return { task: question, options, correctAnswer: options[idx] }
+  // Filter out bad data not compatible with openai strict mode.
+  if (options.some(o => o.includes('"'))) { 
+    return [];
+  }
+  return [{ task: question, options, correctAnswer: options[idx] }];
 }
 
 // --- File I/O -----------------------------------------------------
@@ -37,7 +41,7 @@ async function processCsv(filePath) {
     .map(l => l.trim())
     .filter(l => l && !l.startsWith('#'))
 
-  return lines.map(parseLine)
+  return lines.flatMap(parseLine)
 }
 
 async function main() {

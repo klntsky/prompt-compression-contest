@@ -84,6 +84,7 @@ async function getModelAnswer(
   
   const tools = buildAnswerQuestionTools({ options });
   
+  await new Promise(r => setTimeout(r, 500));
   const response = await openai.chat.completions.create({
     model,
     messages: [
@@ -94,9 +95,10 @@ async function getModelAnswer(
     tool_choice: { type: 'function', function: { name: 'answer_question' } }
   });
 
-  const toolCall = response.choices[0].message.tool_calls?.[0];
+  const toolCall = response?.choices?.[0]?.message?.tool_calls?.[0];
   
   if (!toolCall) {
+    console.error(response, options);
     throw new Error('No tool call in response');
   }
   
