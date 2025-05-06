@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 import { readFile, writeFile, mkdir } from 'fs/promises'
 import { dirname, basename, extname, join } from 'path'
-import { fileURLToPath } from 'url'
 import { glob } from 'glob'
 
 // base input/output dirs
 const DEV_DIR    = './data/mmlu/data/dev';
-const OUT_DIR    = './data/parsed/mmlu';
+const OUT_DIR    = './data/parsed';
+const OUT_FILE   = join(OUT_DIR, 'mmlu.json');
 
 // --- Pure parser --------------------------------------------------
 /**
@@ -24,9 +24,9 @@ function parseLine(line) {
   const key      = cols[cols.length - 1].trim().toUpperCase()
   const idx = key.charCodeAt(0) - 65  // 'A'.charCodeAt(0) === 65
   if (idx < 0 || idx >= options.length) {
-    throw new Error(`Invalid key “${key}” for [${options.join(', ')}]`)
+    throw new Error(`Invalid key "${key}" for [${options.join(', ')}]`)
   }
-  return { question, options, correctAnswer: options[idx] }
+  return { task: question, options, correctAnswer: options[idx] }
 }
 
 // --- File I/O -----------------------------------------------------
@@ -37,12 +37,7 @@ async function processCsv(filePath) {
     .map(l => l.trim())
     .filter(l => l && !l.startsWith('#'))
 
-  const parsed = lines.map(parseLine)
-  const name   = basename(filePath, extname(filePath)) + '.json'
-  const outPath= join(OUT_DIR, name)
-
-  await writeFile(outPath, JSON.stringify(parsed, null, 2), 'utf8')
-  console.log(`✔ Parsed ${basename(filePath)} → ${join('data/parsed', name)}`)
+  return lines.map(parseLine)
 }
 
 async function main() {
@@ -56,13 +51,23 @@ async function main() {
     process.exit(1)
   }
 
+  let allParsedData = []
+  
   for (const fp of files) {
     try {
-      await processCsv(fp)
+      const categoryData = await processCsv(fp)
+      const categoryName = basename(fp, extname(fp))
+      console.log(`✔ Parsed ${categoryName}: ${categoryData.length} questions`)
+      
+      allParsedData = allParsedData.concat(categoryData)
     } catch (err) {
       console.error(`✖ Failed on ${fp}:`, err.message)
     }
   }
+  
+  // Write all data to a single file
+  await writeFile(OUT_FILE, JSON.stringify(allParsedData, null, 2), 'utf8')
+  console.log(`✔ Wrote ${allParsedData.length} total questions to ${OUT_FILE}`)
 }
 
 main().catch(err => {
