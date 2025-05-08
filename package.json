@@ -9,7 +9,10 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "build:dataset": "pnpm run dataset:parse && pnpm run dataset:process",
     "dataset:parse": "node src/prepare-dataset/commonsense_qa_parse.js && node src/prepare-dataset/mmlu_parse.js",
-    "dataset:process": "tsx src/tools/process.ts"
+    "dataset:process": "tsx src/tools/process.ts",
+    "dev": "next dev",
+    "start": "next start",
+    "build:website": "next build"
   },
   "keywords": [],
   "author": "klntsky",
