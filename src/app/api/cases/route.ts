@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import cases from '@/data/processed/commonsense_qa_openai_gpt-4o-mini.json';
+import cases from '@/processed/commonsense_qa_openai_gpt-4o-mini.json';
 
 export async function GET() {
 	try {
