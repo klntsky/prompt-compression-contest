@@ -1,0 +1,387 @@
+[
+  {
+    "task": "Sammy wanted to go to where the people were.  Where might he go?",
+    "options": [
+      "race track",
+      "populated areas",
+      "the desert",
+      "apartment",
+      "roadblock"
+    ],
+    "correctAnswer": "populated areas"
+  },
+  {
+    "task": "To locate a choker not located in a jewelry box or boutique where would you go?",
+    "options": [
+      "jewelry store",
+      "neck",
+      "jewlery box",
+      "jewelry box",
+      "boutique"
+    ],
+    "correctAnswer": "jewelry store"
+  },
+  {
+    "task": "After being in a hospital for weeks and breathing fresh air finally, what happened to the released patient?",
+    "options": [
+      "cheer",
+      "relaxation",
+      "feel better",
+      "silence",
+      "coughing"
+    ],
+    "correctAnswer": "feel better"
+  },
+  {
+    "task": "Everyone is ordinary but we are often told we are what?",
+    "options": [
+      "unbelievable",
+      "strange",
+      "special",
+      "ugly",
+      "exceptional"
+    ],
+    "correctAnswer": "special"
+  },
+  {
+    "task": "What past time are people engaged in when they are traveling along liquid?",
+    "options": [
+      "sail boats",
+      "question authority",
+      "high fives",
+      "share things",
+      "learn from each other"
+    ],
+    "correctAnswer": "sail boats"
+  },
+  {
+    "task": "Why would I be killed?",
+    "options": [
+      "attacked",
+      "of hatred",
+      "defend yourself",
+      "get rid of",
+      "being gay"
+    ],
+    "correctAnswer": "attacked"
+  },
+  {
+    "task": "Why would you be able to wait for someone?",
+    "options": [
+      "stay in place",
+      "stay in one place",
+      "to waist time",
+      "have patience",
+      "1000nd"
+    ],
+    "correctAnswer": "have patience"
+  },
+  {
+    "task": "Life goes different ways for different folks, sometimes good friends have to what?",
+    "options": [
+      "comfort",
+      "keep secrets",
+      "leave",
+      "eat cake",
+      "part ways"
+    ],
+    "correctAnswer": "part ways"
+  },
+  {
+    "task": "Where do captured elephants live?",
+    "options": [
+      "city",
+      "circus",
+      "zoo",
+      "weight 1000 kilos",
+      "africa"
+    ],
+    "correctAnswer": "zoo"
+  },
+  {
+    "task": "Their boss informed them they can't just be chatting with friends on the clock, it was okay if they were doing what though?",
+    "options": [
+      "happiness",
+      "will laugh",
+      "exchanging information",
+      "communication",
+      "social approval"
+    ],
+    "correctAnswer": "exchanging information"
+  },
+  {
+    "task": "What do dogs get that make them itch?",
+    "options": [
+      "bones",
+      "fleas",
+      "bad breath",
+      "wagging tails",
+      "four legs"
+    ],
+    "correctAnswer": "fleas"
+  },
+  {
+    "task": "When people have a variety of opinions, what can they do with one another?",
+    "options": [
+      "divorce",
+      "believe in god",
+      "gain weight",
+      "agree or disagree",
+      "become angry"
+    ],
+    "correctAnswer": "agree or disagree"
+  },
+  {
+    "task": "If a person has nothing they have to do they are said to have what?",
+    "options": [
+      "poor",
+      "know everything",
+      "headache",
+      "spare time",
+      "make more money"
+    ],
+    "correctAnswer": "spare time"
+  },
+  {
+    "task": "Where would you put a dictionary while you're using it?",
+    "options": [
+      "library",
+      "study area",
+      "table",
+      "classroom",
+      "shelf"
+    ],
+    "correctAnswer": "table"
+  },
+  {
+    "task": "Where do you find a rock?",
+    "options": [
+      "ground",
+      "mountains",
+      "farm",
+      "countryside",
+      "mountain range"
+    ],
+    "correctAnswer": "ground"
+  },
+  {
+    "task": "George hated changes to his salary. He wanted his supply  of money to be what?",
+    "options": [
+      "remain stable",
+      "stagnant",
+      "constant",
+      "unpleasant",
+      "permanent"
+    ],
+    "correctAnswer": "constant"
+  },
+  {
+    "task": "James worked at a Kosher Deli in a Jewish  neighborhood in the same city where his grandparents came over from Europe in the 40s. He could see the big green torch from his bedroom.  Where might he live?",
+    "options": [
+      "jerusalem",
+      "miami",
+      "food court",
+      "town",
+      "new york city"
+    ],
+    "correctAnswer": "new york city"
+  },
+  {
+    "task": "What do you need to do when you are getting drunk?",
+    "options": [
+      "ethanol",
+      "consumption of alcohol",
+      "fall down",
+      "booze",
+      "ocean"
+    ],
+    "correctAnswer": "consumption of alcohol"
+  },
+  {
+    "task": "What happens often when traveling to a new time zone?",
+    "options": [
+      "motion sickness",
+      "jet lag",
+      "relocation",
+      "fatigue",
+      "anxious"
+    ],
+    "correctAnswer": "jet lag"
+  },
+  {
+    "task": "This will take a long time without an electric motor, where can I find one?",
+    "options": [
+      "electric mixer",
+      "electric hammer",
+      "electrabus",
+      "electric typewriter",
+      "drum sander"
+    ],
+    "correctAnswer": "electric mixer"
+  },
+  {
+    "task": "James was caught committing perjury in a mock trial for his law class. Everyone laughed at his inept lies.  He couldn't stand the what?",
+    "options": [
+      "indictment",
+      "embarrassment",
+      "penalty",
+      "go to jail",
+      "jail time"
+    ],
+    "correctAnswer": "embarrassment"
+  },
+  {
+    "task": "What place could have one back garden?",
+    "options": [
+      "police station",
+      "city",
+      "town",
+      "england",
+      "house"
+    ],
+    "correctAnswer": "house"
+  },
+  {
+    "task": "The business man had a big meeting that day, but his small child had gotten marker all over his fancy leather what?",
+    "options": [
+      "drawer",
+      "desk",
+      "briefcase",
+      "medium",
+      "office supply store"
+    ],
+    "correctAnswer": "briefcase"
+  },
+  {
+    "task": "Two friend decided to spend their lives together in matrimony, so what did they arrange?",
+    "options": [
+      "restaurant",
+      "wedding",
+      "internet cafe",
+      "movie",
+      "friend's house"
+    ],
+    "correctAnswer": "wedding"
+  },
+  {
+    "task": "James tripped while running in the house.   His mother had repeatedly warned him to put his toys away but he did not listen. Where might his toys have been?",
+    "options": [
+      "slippery",
+      "floor",
+      "store",
+      "drawer",
+      "basement"
+    ],
+    "correctAnswer": "floor"
+  },
+  {
+    "task": "Skiing can be very risky, it can be the cause of a very serious what?",
+    "options": [
+      "fall down",
+      "fall in",
+      "getting cold",
+      "accident",
+      "trip and fall"
+    ],
+    "correctAnswer": "accident"
+  },
+  {
+    "task": "Where can you find a few hundred or thousand apartment?",
+    "options": [
+      "town",
+      "michigan",
+      "texas",
+      "budget",
+      "avoid buying"
+    ],
+    "correctAnswer": "town"
+  },
+  {
+    "task": "Where could a human run to hide if someone was chasing them in the midwest?",
+    "options": [
+      "cornfield",
+      "workplace",
+      "restroom",
+      "star trek",
+      "space"
+    ],
+    "correctAnswer": "cornfield"
+  },
+  {
+    "task": "Where is a bay always found?",
+    "options": [
+      "lake",
+      "manhattan",
+      "shoreline",
+      "coastal area",
+      "los angeles"
+    ],
+    "correctAnswer": "coastal area"
+  },
+  {
+    "task": "What do people make with crab?",
+    "options": [
+      "delicious meal",
+      "chinese market",
+      "fish market",
+      "aquarium",
+      "tidal flats"
+    ],
+    "correctAnswer": "delicious meal"
+  },
+  {
+    "task": "If a couple is having financial issues, buying products can lead to what?",
+    "options": [
+      "economic boom",
+      "being able to use",
+      "disagreements",
+      "spending money",
+      "joy"
+    ],
+    "correctAnswer": "disagreements"
+  },
+  {
+    "task": "A boss may like an employee's ambition, so the employee may get put what?",
+    "options": [
+      "in charge of project",
+      "conquer opponent",
+      "go to school",
+      "begin work",
+      "webisode"
+    ],
+    "correctAnswer": "in charge of project"
+  },
+  {
+    "task": "When meeting a friend what are you likely to do over coffee?",
+    "options": [
+      "talk",
+      "excitement",
+      "joy",
+      "abuse",
+      "panic"
+    ],
+    "correctAnswer": "talk"
+  },
+  {
+    "task": "Studying is the most effective what to get what?",
+    "options": [
+      "increasing knowledge",
+      "money",
+      "higher intelligence",
+      "better grades",
+      "inspiration"
+    ],
+    "correctAnswer": "better grades"
+  },
+  {
+    "task": "Many people have mental issues, they need someone to what to?",
+    "options": [
+      "listen to music",
+      "play games",
+      "eat ice cream",
+      "have fun with",
+      "talk"
+    ],
+    "correctAnswer": "talk"
+  }
+]
