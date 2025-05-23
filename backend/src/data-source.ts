@@ -16,15 +16,13 @@ export const dataSourceOptions: DataSourceOptions = {
   username: process.env.DB_USERNAME || "postgres",
   password: process.env.DB_PASSWORD || "password",
   database: process.env.DB_DATABASE || "prompt_compression_dev",
-  synchronize: false, // Never use TRUE in production! Always use migrations.
-  logging:
-    process.env.NODE_ENV === "development" ? ["query", "error"] : ["error"], // Log queries and errors in dev
-  entities: [path.join(process.cwd(), "src", "**", "*.entity{.ts,.js}")],
-  migrations: [path.join(process.cwd(), "src", "migrations", "*{.ts,.js}")],
-  migrationsTableName: "typeorm_migrations", // Table to store migration history
-  ssl:
-    process.env.DB_SSL === "true" ? { rejectUnauthorized: false } : undefined,
+  synchronize: process.env.DB_SYNCHRONIZE === "true",
+  entities: [path.join(process.cwd(), "src", "entity", "*{.ts,.js}")],
+  migrations: [path.join(process.cwd(), "src", "migration", "*{.ts,.js}")],
+  migrationsTableName: "typeorm_migrations",
+  ssl: process.env.DB_SSL === "true" ? { rejectUnauthorized: true } : undefined,
+  logging: process.env.NODE_ENV === "development" ? ["query", "error"] : ["error"]
 };
 
-const dataSource = new DataSource(dataSourceOptions);
-export default dataSource;
+const AppDataSource = new DataSource(dataSourceOptions);
+export default AppDataSource;

@@ -1,14 +1,9 @@
 packages:
-  # all packages in direct subdirs of packages/
-  - 'packages/*'
-  # all packages in subdirs of components/
-  - 'components/*'
-  # a specific package
-  - 'backend'
-  # the root package (if it's a Next.js app, for example)
-  - '.' 
-# ignoredBuiltDependencies section can remain if needed
-#ignoredBuiltDependencies:
-#  - '@tailwindcss/oxide'
-#  - esbuild
-#  - sharp
+  - packages/*
+  - components/*
+  - backend
+  - .
+ignoredBuiltDependencies:
+  - '@tailwindcss/oxide'
+  - esbuild
+  - sharp
