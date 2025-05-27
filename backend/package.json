@@ -7,9 +7,9 @@
   "license": "UNLICENSED",
   "scripts": {
     "typeorm": "ts-node -r tsconfig-paths/register -P tsconfig.json ./node_modules/typeorm/cli.js --dataSource src/data-source.ts",
-    "migration:generate": "pnpm run typeorm migration:generate",
-    "migration:run": "pnpm run typeorm migration:run",
-    "migration:revert": "pnpm run typeorm migration:revert"
+    "migration:generate": "pnpm run typeorm migration:generate ./src/migration/initial",
+    "migration:run": "pnpm run typeorm migration:run ./src/migration/initial",
+    "migration:revert": "pnpm run typeorm migration:revert ./src/migration/initial"
   },
   "dependencies": {
     "typeorm": "^0.3.20",

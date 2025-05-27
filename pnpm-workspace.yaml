@@ -1,9 +1,0 @@
-packages:
-  - packages/*
-  - components/*
-  - backend
-  - .
-ignoredBuiltDependencies:
-  - '@tailwindcss/oxide'
-  - esbuild
-  - sharp
