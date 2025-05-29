@@ -21,14 +21,14 @@ export async function initializeDatabase(): Promise<void> {
 }
 
 /**
- * Store processed test cases to the database.
- * Each test case is serialized and stored as a Test entity with associated metadata.
+ * Store processed test cases to the database, avoiding duplicates.
+ * Uses TypeORM upsert for efficient bulk insertion with conflict resolution.
  * @param params Parameters for storing test cases
  * @param params.testCases Array of test cases to store
  * @param params.model Model name used for the test cases
  * @param params.datasetName Name of the dataset the test cases belong to
  * @param params.numAttempts Number of attempts made for these test cases
- * @returns Promise that resolves when all test cases are stored
+ * @returns Promise that resolves to the number of new test cases stored
  * @throws Error if database operation fails or connection is not initialized
  */
 export async function storeProcessedTestCases(params: {
@@ -36,49 +36,29 @@ export async function storeProcessedTestCases(params: {
   model: string;
   datasetName: string;
   numAttempts: number;
-}): Promise<void> {
-  const { testCases, model, datasetName } = params;
-  const testRepository = AppDataSource.getRepository(Test);
-
-  for (const testCase of testCases) {
-    // Create test entry with serialized test case data
-    const test = testRepository.create({
-      model,
-      payload: JSON.stringify({
-        datasetName,
-        task: testCase.task,
-        options: testCase.options,
-        correctAnswer: testCase.correctAnswer,
-      }),
-    });
-
-    await testRepository.save(test);
-  }
-}
-
-/**
- * Check if test cases already exist for a specific dataset and model combination.
- * Uses pattern matching on the serialized payload to find matching entries.
- * @param params Parameters for checking existing tests
- * @param params.model Model name to search for
- * @param params.datasetName Dataset name to search for
- * @returns Promise that resolves to the count of existing test cases
- * @throws Error if database query fails or connection is not initialized
- */
-export async function getExistingTestCount(params: {
-  model: string;
-  datasetName: string;
 }): Promise<number> {
-  const { model, datasetName } = params;
+  const { testCases, model, datasetName } = params;
+  if (testCases.length === 0) {
+    return 0;
+  }
   const testRepository = AppDataSource.getRepository(Test);
-
-  return await testRepository
-    .createQueryBuilder('test')
-    .where('test.model = :model', { model })
-    .andWhere('test.payload LIKE :datasetPattern', {
-      datasetPattern: `%"datasetName":"${datasetName}"%`,
-    })
-    .getCount();
+  // Prepare all test entities
+  const testEntities = testCases.map(testCase => ({
+    model,
+    payload: JSON.stringify({
+      datasetName,
+      task: testCase.task,
+      options: testCase.options,
+      correctAnswer: testCase.correctAnswer,
+    }),
+  }));
+  // Use upsert to handle duplicates efficiently
+  // This relies on the unique constraint on (model, payload)
+  const result = await testRepository.upsert(testEntities, {
+    conflictPaths: ['model', 'payload'], // Specify the columns for conflict detection
+    skipUpdateIfNoValuesChanged: true, // Recommended for ON CONFLICT DO NOTHING behavior
+  });
+  return result.identifiers.length;
 }
 
 /**

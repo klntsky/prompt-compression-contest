@@ -10,7 +10,6 @@ import _ from 'lodash';
 import {
   initializeDatabase,
   storeProcessedTestCases,
-  getExistingTestCount,
   closeDatabase,
 } from '../lib/database-service.js';
 
@@ -108,12 +107,6 @@ async function processFile(
     const content = await fs.readFile(inputFile, 'utf-8');
     const dataset = JSON.parse(content) as TestCase[];
     console.log(`Read ${dataset.length} entries from ${inputFile}`);
-    // Check existing database entries
-    const existingDbCount = await getExistingTestCount({
-      model,
-      datasetName,
-    });
-    console.log(`Found ${existingDbCount} existing entries in database`);
     // Take a random sample instead of first N entries
     const sampledDataset = getRandomSample(dataset, limitEntries);
     console.log(
@@ -157,13 +150,13 @@ async function processFile(
     );
     // Write to database
     if (nonFlakyEntries.length > 0) {
-      await storeProcessedTestCases({
+      const count = await storeProcessedTestCases({
         testCases: nonFlakyEntries,
         model,
         datasetName,
         numAttempts,
       });
-      console.log(`📊 Stored ${nonFlakyEntries.length} entries to database`);
+      console.log(`📊 Stored ${count} entries to database`);
     }
     console.log(`✅ Successfully processed ${datasetName}`);
     const filteredCount = sampledDataset.length - nonFlakyEntries.length;
