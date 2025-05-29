@@ -25,6 +25,7 @@ function printProgressReport(
   // Clear line and print status
   process.stdout.write(`\r${' '.repeat(status.length)}\r${status}`);
 }
+
 /**
  * Filter out flaky test cases from a dataset by running multiple attempts
  * @param params Parameters for filtering flaky test cases

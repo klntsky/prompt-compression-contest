@@ -18,6 +18,7 @@ export interface TestSuiteResult {
   passedTests: number;
   totalTests: number;
 }
+
 /**
  * Creates and configures an OpenAI client with OpenRouter
  * @returns {OpenAI} Configured OpenAI client
@@ -32,6 +33,7 @@ function createOpenAIClient(): OpenAI {
     },
   });
 }
+
 /**
  * Build the tool schema for a given set of options
  * @param options List of answer options
@@ -60,6 +62,7 @@ function buildAnswerQuestionTools(params: {
     },
   ];
 }
+
 /**
  * Makes an API call and gets the model's answer for a task
  * @param params Parameters for getting a model answer
@@ -95,6 +98,7 @@ async function getModelAnswer(params: {
   const args = JSON.parse(toolCall.function.arguments);
   return args.answer;
 }
+
 /**
  * Compare two answers case-insensitively
  * @param params Parameters for comparing answers
@@ -104,6 +108,7 @@ function isCorrect(params: { answer: string; correctAnswer: string }): boolean {
   const { answer, correctAnswer } = params;
   return answer.trim().toLowerCase() === correctAnswer.trim().toLowerCase();
 }
+
 /**
  * Evaluates a test case using a model
  * @param params Parameters for test evaluation
@@ -145,6 +150,7 @@ export async function evaluatePrompt(params: {
     return false;
   }
 }
+
 /**
  * Evaluates test cases with a model
  * @param params Parameters for test suite evaluation

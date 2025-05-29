@@ -7,7 +7,6 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config();
-
 // Define options directly in the DataSource constructor
 const AppDataSource = new DataSource({
   type: (process.env.DB_TYPE as DatabaseType) || 'postgres',
@@ -24,4 +23,5 @@ const AppDataSource = new DataSource({
   logging:
     process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
 } as DataSourceOptions);
+
 export default AppDataSource;

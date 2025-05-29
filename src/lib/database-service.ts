@@ -10,14 +10,12 @@ import type { TestCase } from './evaluate.js';
 export class DatabaseService {
   private static instance: DatabaseService;
   private initialized = false;
-
   /**
    * Private constructor to enforce singleton pattern.
    * Use getInstance() to get the singleton instance.
    * @private
    */
   private constructor() {}
-
   /**
    * Gets the singleton instance of DatabaseService.
    * Creates a new instance if one doesn't exist.
@@ -30,7 +28,6 @@ export class DatabaseService {
     }
     return DatabaseService.instance;
   }
-
   /**
    * Initialize database connection if not already initialized.
    * This method is idempotent - calling it multiple times is safe.
@@ -46,7 +43,6 @@ export class DatabaseService {
       this.initialized = true;
     }
   }
-
   /**
    * Store processed test cases to the database.
    * Each test case is serialized and stored as a Test entity with associated metadata.
@@ -81,7 +77,6 @@ export class DatabaseService {
       await testRepository.save(test);
     }
   }
-
   /**
    * Check if test cases already exist for a specific dataset and model combination.
    * Uses pattern matching on the serialized payload to find matching entries.
@@ -106,7 +101,6 @@ export class DatabaseService {
       })
       .getCount();
   }
-
   /**
    * Close the database connection and reset initialization state.
    * This method is idempotent - calling it multiple times is safe.

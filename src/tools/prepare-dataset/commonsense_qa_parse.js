@@ -2,6 +2,7 @@
 import fs from 'fs';
 import { readParquet } from 'parquet-wasm';
 import { tableFromIPC } from 'apache-arrow';
+
 async function convertAndTransform(inputPath, outputPath) {
   // Read the Parquet file
   const parquetData = fs.readFileSync(inputPath);
@@ -25,6 +26,7 @@ async function convertAndTransform(inputPath, outputPath) {
   // Write the output JSON
   fs.writeFileSync(outputPath, JSON.stringify(transformed, null, 2), 'utf8');
 }
+
 (async () => {
   // const [,, inputPath, outputPath] = process.argv;
   const inputPath = './data/commonsense_qa/train.parquet';

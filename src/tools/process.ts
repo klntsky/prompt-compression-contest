@@ -14,14 +14,13 @@ const INPUT_DIR = 'data/parsed';
 const OUTPUT_DIR = 'data/processed';
 const DEFAULT_MODEL = 'openai/gpt-4o-mini';
 const MODEL = process.env.PROCESS_MODEL || DEFAULT_MODEL;
-const NUM_ATTEMPTS =
-  process.env.PROCESS_NUM_ATTEMPTS ?
-    parseInt(process.env.PROCESS_NUM_ATTEMPTS)
+const NUM_ATTEMPTS = process.env.PROCESS_NUM_ATTEMPTS
+  ? parseInt(process.env.PROCESS_NUM_ATTEMPTS)
   : 3;
-const LIMIT_ENTRIES =
-  process.env.PROCESS_LIMIT_ENTRIES ?
-    parseInt(process.env.PROCESS_LIMIT_ENTRIES)
+const LIMIT_ENTRIES = process.env.PROCESS_LIMIT_ENTRIES
+  ? parseInt(process.env.PROCESS_LIMIT_ENTRIES)
   : 100;
+
 /**
  * Print a single-line status update
  * @param processedCount Number of entries processed so far
@@ -38,15 +37,16 @@ function printStatus(
   const passPct =
     processedCount > 0 ? Math.round((passedEntries / processedCount) * 100) : 0;
   const failPct =
-    processedCount > 0 ?
-      Math.round(((processedCount - passedEntries) / processedCount) * 100)
-    : 0;
+    processedCount > 0
+      ? Math.round(((processedCount - passedEntries) / processedCount) * 100)
+      : 0;
   console.log(
     `Progress: ${processedCount}/${totalEntries} (${progressPct}%) | ` +
       `Passed: ${passedEntries} (${passPct}%) | ` +
       `Failed: ${processedCount - passedEntries} (${failPct}%)`
   );
 }
+
 /**
  * Take a random sample from an array
  * @param array The array to sample from
@@ -56,6 +56,7 @@ function printStatus(
 function getRandomSample<T>(array: T[], size: number): T[] {
   return _.sampleSize(array, Math.min(size, array.length));
 }
+
 /**
  * Combine arrays and remove duplicates using deep equality
  * @param arrays Arrays to combine
@@ -74,6 +75,7 @@ function combineAndDedup<T>(arrays: T[][]): T[] {
   }
   return result;
 }
+
 /**
  * Process a single dataset file
  * @param inputFile Path to the input file
@@ -102,14 +104,12 @@ async function processFile(
     const content = await fs.readFile(inputFile, 'utf-8');
     const dataset = JSON.parse(content) as TestCase[];
     console.log(`Read ${dataset.length} entries from ${inputFile}`);
-
     // Check existing database entries
     const existingDbCount = await dbService.getExistingTestCount({
       model,
       datasetName,
     });
     console.log(`Found ${existingDbCount} existing entries in database`);
-
     // Take a random sample instead of first N entries
     const sampledDataset = getRandomSample(dataset, limitEntries);
     console.log(
@@ -178,6 +178,7 @@ async function processFile(
     console.error(`❌ Failed to process ${datasetName}:`, error);
   }
 }
+
 /**
  * Main function
  */
@@ -207,5 +208,6 @@ async function main(): Promise<void> {
     await dbService.close();
   }
 }
+
 // Run the script
 main();

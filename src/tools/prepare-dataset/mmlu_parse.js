@@ -7,6 +7,7 @@ import { glob } from 'glob';
 const DEV_DIR = './data/mmlu/data/dev';
 const OUT_DIR = './data/parsed';
 const OUT_FILE = join(OUT_DIR, 'mmlu.json');
+
 // --- Pure parser --------------------------------------------------
 /**
  * Parse one CSV line:
@@ -31,6 +32,7 @@ function parseLine(line) {
   }
   return [{ task: question, options, correctAnswer: options[idx] }];
 }
+
 // --- File I/O -----------------------------------------------------
 async function processCsv(filePath) {
   const text = await readFile(filePath, 'utf8');
@@ -40,6 +42,7 @@ async function processCsv(filePath) {
     .filter(l => l && !l.startsWith('#'));
   return lines.flatMap(parseLine);
 }
+
 async function main() {
   await mkdir(OUT_DIR, { recursive: true });
   const pattern = join(DEV_DIR, '*.csv');
@@ -67,6 +70,7 @@ async function main() {
     `✔ Wrote ${allParsedData.length} total questions to ${OUT_FILE}`
   );
 }
+
 main().catch(err => {
   console.error(err);
   process.exit(1);
