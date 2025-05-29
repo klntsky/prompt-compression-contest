@@ -7,7 +7,12 @@ import { filterFlakyTestCases } from '../lib/filter-flaky-cases';
 import type { TestCase } from '../lib/evaluate';
 import 'dotenv/config';
 import _ from 'lodash';
-import { DatabaseService } from '../lib/database-service.js';
+import {
+  initializeDatabase,
+  storeProcessedTestCases,
+  getExistingTestCount,
+  closeDatabase,
+} from '../lib/database-service.js';
 
 // Configuration
 const INPUT_DIR = 'data/parsed';
@@ -98,14 +103,13 @@ async function processFile(
     `${datasetName}.${modelName}.${numAttempts}_attempts.json`
   );
   // Initialize database service
-  const dbService = DatabaseService.getInstance();
-  await dbService.initialize();
+  await initializeDatabase();
   try {
     const content = await fs.readFile(inputFile, 'utf-8');
     const dataset = JSON.parse(content) as TestCase[];
     console.log(`Read ${dataset.length} entries from ${inputFile}`);
     // Check existing database entries
-    const existingDbCount = await dbService.getExistingTestCount({
+    const existingDbCount = await getExistingTestCount({
       model,
       datasetName,
     });
@@ -151,9 +155,9 @@ async function processFile(
       JSON.stringify(combinedEntries, null, 2),
       'utf-8'
     );
-    // Write to database (new functionality)
+    // Write to database
     if (nonFlakyEntries.length > 0) {
-      await dbService.storeProcessedTestCases({
+      await storeProcessedTestCases({
         testCases: nonFlakyEntries,
         model,
         datasetName,
@@ -183,7 +187,6 @@ async function processFile(
  * Main function
  */
 async function main(): Promise<void> {
-  const dbService = DatabaseService.getInstance();
   try {
     // Find all JSON files in the input directory
     const inputFiles = await glob(path.join(INPUT_DIR, '*.json'));
@@ -205,7 +208,7 @@ async function main(): Promise<void> {
     process.exit(1);
   } finally {
     // Clean up database connection
-    await dbService.close();
+    await closeDatabase();
   }
 }
 
