@@ -2,6 +2,7 @@
 import { readFile, writeFile, mkdir } from 'fs/promises';
 import { basename, extname, join } from 'path';
 import { glob } from 'glob';
+import { stringify } from 'fast-json-stable-stringify';
 
 // base input/output dirs
 const DEV_DIR = './data/mmlu/data/dev';
@@ -65,7 +66,7 @@ async function main() {
     }
   }
   // Write all data to a single file
-  await writeFile(OUT_FILE, JSON.stringify(allParsedData, null, 2), 'utf8');
+  await writeFile(OUT_FILE, stringify(allParsedData), 'utf8');
   console.log(
     `✔ Wrote ${allParsedData.length} total questions to ${OUT_FILE}`
   );

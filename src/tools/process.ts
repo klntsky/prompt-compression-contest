@@ -12,6 +12,7 @@ import {
   storeProcessedTestCases,
   closeDatabase,
 } from '../lib/database-service.js';
+import stringify from 'fast-json-stable-stringify';
 
 // Configuration
 const INPUT_DIR = 'data/parsed';
@@ -143,11 +144,7 @@ async function processFile(
     const combinedEntries = combineAndDedup([existingEntries, nonFlakyEntries]);
     // Create output directory if it doesn't exist
     await fs.mkdir(path.dirname(outputFile), { recursive: true });
-    await fs.writeFile(
-      outputFile,
-      JSON.stringify(combinedEntries, null, 2),
-      'utf-8'
-    );
+    await fs.writeFile(outputFile, stringify(combinedEntries), 'utf-8');
     // Write to database
     if (nonFlakyEntries.length > 0) {
       const count = await storeProcessedTestCases({

@@ -1,6 +1,7 @@
 import AppDataSource from '../api/data-source.js';
 import { Test } from '../api/entities/test.js';
 import type { TestCase } from './evaluate.js';
+import stringify from 'fast-json-stable-stringify';
 
 // Module-level state
 let isInitialized = false;
@@ -45,7 +46,7 @@ export async function storeProcessedTestCases(params: {
   // Prepare all test entities
   const testEntities = testCases.map(testCase => ({
     model,
-    payload: JSON.stringify({
+    payload: stringify({
       datasetName,
       task: testCase.task,
       options: testCase.options,

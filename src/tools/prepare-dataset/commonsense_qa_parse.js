@@ -2,6 +2,7 @@
 import fs from 'fs';
 import { readParquet } from 'parquet-wasm';
 import { tableFromIPC } from 'apache-arrow';
+import { stringify } from 'fast-json-stable-stringify';
 
 async function convertAndTransform(inputPath, outputPath) {
   // Read the Parquet file
@@ -24,7 +25,7 @@ async function convertAndTransform(inputPath, outputPath) {
     };
   });
   // Write the output JSON
-  fs.writeFileSync(outputPath, JSON.stringify(transformed, null, 2), 'utf8');
+  fs.writeFileSync(outputPath, stringify(transformed), 'utf8');
 }
 
 (async () => {
