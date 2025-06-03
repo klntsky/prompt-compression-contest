@@ -20,8 +20,7 @@ const AppDataSource = new DataSource({
   migrations: [path.join(__dirname, 'migrations', '*{.ts,.js}')],
   migrationsTableName: 'typeorm_migrations',
   ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: true } : undefined,
-  logging:
-    process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
+  logging: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
 } as DataSourceOptions);
 
 export default AppDataSource;
