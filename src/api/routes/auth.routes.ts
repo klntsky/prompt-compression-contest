@@ -1,151 +1,292 @@
-import { Router, Request as ExpressRequest, Response } from 'express';
+import { Request, Response, NextFunction, Router } from 'express';
+import passport from 'passport';
+import { Strategy as LocalStrategy, IVerifyOptions } from 'passport-local';
 import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
+import zxcvbn from 'zxcvbn';
+import validator from 'validator';
+import { SALT_ROUNDS } from '../middlewares.js';
 import AppDataSource from '../data-source.js';
 import { User } from '../entities/user.js';
-import {
-  registrationLimiter,
-  successfulRegistrations,
-  SALT_ROUNDS,
-  JWT_SECRET,
-} from '../middlewares.js';
+
+// Define interfaces for request payloads
+interface RegistrationPayload {
+  username?: string;
+  email?: string;
+  password?: string;
+}
 
 const router = Router();
 
-router.post(
-  '/register',
-  registrationLimiter,
-  async (req: ExpressRequest, res: Response): Promise<void> => {
-    const { email, login, password, repeatedPassword } = req.body;
-    const ip = req.ip;
+// NEW: Local map for registration rate limiting, specific to this file
+const successfulRegistrationsLocal = new Map<string, number>();
 
-    if (!email || !login || !password || !repeatedPassword) {
-      res
-        .status(400)
-        .send('Email, login, password, and repeated password are required.');
-      return;
-    }
-    const emailRegex = /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/;
-    if (!emailRegex.test(email)) {
-      res.status(400).send('Invalid email format.');
-      return;
-    }
-    if (password !== repeatedPassword) {
-      res.status(400).send('Passwords do not match.');
-      return;
-    }
-    if (password.length < 8) {
-      res.status(400).send('Password must be at least 8 characters long.');
-      return;
-    }
-
-    const userRepository = AppDataSource.getRepository(User);
-    try {
-      const existingUserByEmail = await userRepository.findOne({
-        where: { email },
-      });
-      if (existingUserByEmail) {
-        res.status(409).send('User with this email already exists.');
-        return;
+passport.use(
+  new LocalStrategy(
+    async (
+      username,
+      password,
+      done: (
+        error: unknown,
+        user?: Express.User | false, // Express.User should pick up the global definition
+        options?: IVerifyOptions
+      ) => void
+    ) => {
+      const userRepository = AppDataSource.getRepository(User);
+      try {
+        const userEntity = await userRepository.findOneBy({ login: username });
+        if (!userEntity) {
+          return done(null, false, {
+            message: 'Incorrect username or password.',
+          });
+        }
+        const match = await bcrypt.compare(password, userEntity.password);
+        if (match) {
+          // Populate Express.User with id and isAdmin
+          return done(null, {
+            id: userEntity.login,
+            isAdmin: userEntity.isAdmin,
+          });
+        } else {
+          return done(null, false, {
+            message: 'Incorrect username or password.',
+          });
+        }
+      } catch (err) {
+        return done(err);
       }
-      const existingUserByLogin = await userRepository.findOne({
-        where: { login },
-      });
-      if (existingUserByLogin) {
-        res.status(409).send('User with this login identifier already exists.');
-        return;
-      }
-
-      const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-      const newUser = new User();
-      newUser.email = email;
-      newUser.login = login;
-      newUser.password = hashedPassword;
-      // newUser.isAdmin is false by default as per entity definition
-      await userRepository.save(newUser);
-
-      // Increment successful registration count for this IP
-      if (ip && ip.length > 0) {
-        successfulRegistrations.set(
-          ip,
-          (successfulRegistrations.get(ip) || 0) + 1
-        );
-        setTimeout(
-          () => {
-            const currentCount = successfulRegistrations.get(ip);
-            if (currentCount && currentCount > 0) {
-              successfulRegistrations.set(ip, currentCount - 1);
-              if (successfulRegistrations.get(ip) === 0)
-                successfulRegistrations.delete(ip);
-            } else {
-              successfulRegistrations.delete(ip);
-            }
-          },
-          24 * 60 * 60 * 1000
-        );
-      }
-      res.status(201).send({
-        message: 'User registered successfully.',
-        login: newUser.login,
-        isAdmin: newUser.isAdmin,
-      });
-    } catch (error) {
-      console.error('Error during registration:', error);
-      res.status(500).send('An error occurred during registration.');
     }
-  }
+  )
 );
+
+passport.serializeUser((user: Express.User, done) => {
+  // user object here is { id: string, isAdmin: boolean } from LocalStrategy
+  done(null, user.id); // Only user.id (login) is stored in the session
+});
+
+passport.deserializeUser(async (id: string, done) => {
+  // id is the user.id (login) from the session
+  const userRepository = AppDataSource.getRepository(User);
+  try {
+    const userEntity = await userRepository.findOneBy({ login: id });
+    if (userEntity) {
+      // Reconstruct the Express.User object for req.user
+      done(null, { id: userEntity.login, isAdmin: userEntity.isAdmin });
+    } else {
+      done(null, false); // User not found
+    }
+  } catch (err) {
+    done(err);
+  }
+});
+
+// Registration route
+router.get('/register', (req: Request, res: Response) => {
+  res.status(200).json({
+    message: 'GET /register - serves registration form (not used by API tests)',
+  });
+});
+
+router.post('/register', async (req: Request, res: Response): Promise<void> => {
+  // NEW: Inline rate limiting logic using the local map
+  const ip = req.ip;
+  const currentSuccessfulOnLocalMap = ip
+    ? successfulRegistrationsLocal.get(ip) || 0
+    : 0;
+  if (ip && currentSuccessfulOnLocalMap >= 2) {
+    res.status(429).json({
+      error:
+        'Too many successful registrations from this IP (local inline check), please try again after 24 hours.',
+      limit_details: {
+        ip: ip,
+        attempted_at: new Date().toISOString(),
+        count_before_this_attempt: currentSuccessfulOnLocalMap,
+      },
+    });
+    return;
+  }
+
+  const userRepository = AppDataSource.getRepository(User);
+  try {
+    const { username, email, password } = req.body as RegistrationPayload;
+
+    if (!username || !password || !email) {
+      res.status(400).json({
+        error: 'Username, email, and password are required.',
+      });
+      return;
+    }
+    const error = await validateRegistration(
+      username,
+      email,
+      password,
+      userRepository
+    );
+    if (error) {
+      res.status(400).json({
+        error: error,
+      });
+      return;
+    }
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+    const newUser = userRepository.create({
+      login: username,
+      email: email,
+      password: hashedPassword,
+      isAdmin: false,
+    });
+    await userRepository.save(newUser);
+
+    // Update the LOCAL map after successful registration
+    if (ip) {
+      const count = successfulRegistrationsLocal.get(ip) || 0;
+      successfulRegistrationsLocal.set(ip, count + 1);
+    }
+    req.flash('success', 'Registration successful! Please log in.');
+    res.redirect('/auth/login');
+  } catch (err: unknown) {
+    console.error(
+      'Registration error (inline limiter in auth.routes.ts):',
+      err
+    );
+    res.status(500).json({
+      error: 'Registration failed. Please try again.',
+    });
+  }
+});
+
+router.get('/login', (req: Request, res: Response) => {
+  const errorMessages: string[] = req.flash('error');
+  const successMessages: string[] = req.flash('success');
+  res.status(200).json({
+    message: 'GET /login - serves login form (not used by API tests)',
+    error: errorMessages.length > 0 ? errorMessages[0] : null,
+    success: successMessages.length > 0 ? successMessages[0] : null,
+  });
+});
 
 router.post(
   '/login',
-  async (req: ExpressRequest, res: Response): Promise<void> => {
-    const { loginOrEmail, password } = req.body;
-    if (!loginOrEmail || !password) {
-      res.status(400).send('Login identifier/email and password are required.');
-      return;
-    }
-    const userRepository = AppDataSource.getRepository(User);
-    try {
-      let user: User | null = null;
-      if (loginOrEmail.includes('@')) {
-        user = await userRepository.findOne({ where: { email: loginOrEmail } });
-      } else {
-        user = await userRepository.findOne({ where: { login: loginOrEmail } });
-      }
-      if (!user) {
-        res.status(401).send('Invalid credentials.');
-        return;
-      }
-      const passwordMatch = await bcrypt.compare(password, user.password);
-      if (!passwordMatch) {
-        res.status(401).send('Invalid credentials.');
-        return;
-      }
-      const tokenPayload = {
-        userLogin: user.login,
-        email: user.email,
-        isAdmin: user.isAdmin,
-      };
-      const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '1h' });
-      res.status(200).send({ message: 'Login successful.', token: token });
-    } catch (error) {
-      console.error('Error during login:', error);
-      res.status(500).send('An error occurred during login.');
-    }
-  }
+  passport.authenticate('local', {
+    successRedirect: '/auth/profile',
+    failureRedirect: '/auth/login',
+    failureFlash: true,
+    successFlash: 'Welcome back!',
+  })
 );
 
-router.post('/logout', (req: ExpressRequest, res: Response) => {
-  res
-    .status(200)
-    .send('Logout successful. Please clear your token on the client-side.');
+router.get('/logout', (req: Request, res: Response, next: NextFunction) => {
+  req.logout((err?: Error | null) => {
+    if (err) {
+      return next(err);
+    }
+    req.flash('success', 'You have been logged out.');
+    res.redirect('/auth/login');
+  });
 });
+
+// Added GET /auth/profile route for test script compatibility
+router.get('/profile', (req: Request, res: Response) => {
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    res.json({
+      message: 'User profile data.',
+      user: req.user, // req.user should contain { id: string, isAdmin: boolean }
+    });
+  } else {
+    res.status(401).json({ message: 'Not authenticated' });
+  }
+});
+
+async function validateRegistration(
+  username: string,
+  email: string,
+  password: string,
+  userRepository: import('typeorm').Repository<User>
+): Promise<string | null> {
+  if (!userRepository) {
+    return 'Validation setup error: User repository not provided.';
+  }
+  const blacklistedLogins: string[] = [
+    'attempts',
+    
+    'login',
+    'register',
+    'ban',
+    'mod',
+    'notifications',
+    'test',
+    'profile',
+    'api',
+    'admin',
+    'page',
+    'about',
+    'help',
+    'account',
+    'settings',
+    'logout',
+    'redirect',
+    'oauth',
+    'delete',
+    'faq',
+    'donate',
+    'feed',
+    'app',
+    'auth',
+    'compare',
+    'gallery',
+    'change-password',
+    'users',
+    'user',
+    'bio',
+  ];
+  if (!username || !password || !email) {
+    return 'Username, email, and password are required.';
+  }
+  if (blacklistedLogins.includes(username.toLowerCase())) {
+    return 'This username is not allowed.';
+  }
+  if (!/^[a-zA-Z0-9_-]{3,30}$/.test(username)) {
+    return 'Username must be 3-30 characters and can only contain letters, numbers, hyphens (-), and underscores (_).';
+  }
+  if (!validator.isEmail(email)) {
+    return 'Invalid email format.';
+  }
+  const existingUserByLogin = await userRepository.findOneBy({
+    login: username,
+  });
+  if (existingUserByLogin) {
+    return 'Username already exists.';
+  }
+  const existingUserByEmail = await userRepository.findOneBy({ email: email });
+  if (existingUserByEmail) {
+    return 'Email already registered.';
+  }
+  const passwordError = validatePassword(password);
+  if (passwordError) {
+    return passwordError;
+  }
+  return null;
+}
+
+function validatePassword(password: string): string | null {
+  if (!password || password.length < 8) {
+    return 'Password must be at least 8 characters long.';
+  }
+  const passwordStrength = zxcvbn(password);
+  if (passwordStrength.score < 3) {
+    let suggestions = '';
+    if (passwordStrength.feedback && passwordStrength.feedback.suggestions) {
+      suggestions =
+        ' Suggestions: ' + passwordStrength.feedback.suggestions.join(' ');
+    }
+    return `Password is too weak (score: ${passwordStrength.score}/4).${suggestions} Please choose a stronger password.`;
+  }
+  return null;
+}
 
 export async function seedAdminUser(): Promise<void> {
   const adminLogin = process.env.ADMIN_DEFAULT_LOGIN;
   const adminEmail = process.env.ADMIN_DEFAULT_EMAIL;
   const adminPassword = process.env.ADMIN_DEFAULT_PASSWORD;
-
   if (!adminLogin || !adminEmail || !adminPassword) {
     console.warn(
       'Default admin env data not fully set. Skipping admin seeding.'

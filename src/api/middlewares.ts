@@ -3,7 +3,6 @@ import rateLimit, {
   RateLimitRequestHandler,
   Options as RateLimitOptions,
 } from 'express-rate-limit';
-import { expressjwt } from 'express-jwt';
 
 // --- Interfaces & Types ---
 
@@ -15,18 +14,28 @@ export interface RateLimitData {
   resetTime?: Date;
 }
 
-export interface AuthPayload {
-  userLogin: string;
-  email: string;
-  isAdmin: boolean;
-  iat: number; // Issued At: Timestamp (seconds since epoch) when the token was issued
-  exp: number; // Expiration Time: Timestamp (seconds since epoch) when the token expires
+// This augments the Express.User type globally.
+// It should align with what passport.deserializeUser provides.
+// Consider moving this to a central types file (e.g., src/types/express.d.ts) if used across many files.
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace Express {
+    interface User {
+      id: string; // Typically the user's unique identifier (e.g., login or UUID)
+      isAdmin?: boolean;
+      // Add other properties here that you expect on req.user after authentication
+    }
+    // Define LogOutOptions if not available from @types/passport or @types/express
+    interface LogOutOptions {
+      keepSessionInfo?: boolean;
+    }
+  }
 }
 
 // For requests that have been authenticated and might have rate limit info
 export interface AuthenticatedRequest extends ExpressRequest {
-  auth: AuthPayload; // Properties from the decoded JWT - now non-optional
-  rateLimit?: RateLimitData; // From express-rate-limit
+  user: Express.User;
+  rateLimit?: RateLimitData;
 }
 
 // For requests that have rate limit info but are not necessarily authenticated
@@ -35,34 +44,40 @@ export interface RateLimitedRequest extends ExpressRequest {
 }
 
 // --- Constants ---
-const jwtSecretFromEnv = process.env.JWT_SECRET;
-if (!jwtSecretFromEnv) {
-  console.error(
-    'FATAL ERROR: JWT_SECRET environment variable is not set. Application will terminate.'
-  );
-  process.exit(1); // Exit the application if JWT_SECRET is not set
-}
-export const JWT_SECRET = jwtSecretFromEnv;
-
 export const SALT_ROUNDS = parseInt(process.env.SALT_ROUNDS || '10', 10);
 
 // --- Authentication Middlewares ---
-export const authenticateToken = expressjwt({
-  secret: JWT_SECRET,
-  algorithms: ['HS256'],
-});
+
+/**
+ * Middleware to ensure the user is authenticated.
+ * If not authenticated, it typically redirects to /login or sends a 401/403 response.
+ */
+export const ensureAuthenticated = (
+  req: ExpressRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    return next();
+  }
+  res.status(401).send('Unauthorized: Please log in.');
+};
 
 export const isAdminMiddleware = (
   req: ExpressRequest,
   res: Response,
   next: NextFunction
 ): void => {
-  const authenticatedReq = req as AuthenticatedRequest;
-  if (!authenticatedReq.auth || !authenticatedReq.auth.isAdmin) {
-    res.status(403).send('Forbidden: Admins only.');
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    res.status(401).send('Unauthorized: Please log in.');
     return;
   }
-  next();
+  const authenticatedReq = req as AuthenticatedRequest;
+  if (authenticatedReq.user && authenticatedReq.user.isAdmin) {
+    next();
+  } else {
+    res.status(403).send('Forbidden: Admins only.');
+  }
 };
 
 // --- Rate Limiters ---
@@ -70,16 +85,27 @@ export const isAdminMiddleware = (
 // For successful registrations (IP-based)
 export const successfulRegistrations = new Map<string, number>();
 
+console.log(
+  '[DEBUG] MIDDLEWARES.TS - Defining registrationLimiter - NEW LOG POINT'
+);
+
 export const registrationLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 24 * 60 * 60 * 1000, // 24 hours
+  limit: 100, // General limit for the endpoint
+  keyGenerator: (req: ExpressRequest) => {
+    return req.ip || 'unknown-ip-general';
+  },
   handler: async (
-    req: RateLimitedRequest,
+    req: ExpressRequest,
     res: Response,
     next: NextFunction,
     optionsUsed: RateLimitOptions
   ): Promise<void> => {
+    const rateLimitedReq = req as RateLimitedRequest;
     const ip = req.ip;
-    if (ip && (successfulRegistrations.get(ip) || 0) >= 2) {
+    const currentSuccessful = ip ? successfulRegistrations.get(ip) || 0 : 0;
+    // Custom logic for successful registration limit (2 per day)
+    if (ip && currentSuccessful >= 2) {
       res
         .status(429)
         .send(
@@ -87,27 +113,27 @@ export const registrationLimiter: RateLimitRequestHandler = rateLimit({
         );
       return;
     }
-    const limit = optionsUsed.limit as number;
-    if (req.rateLimit && req.rateLimit.current >= limit) {
+    // General rate limiting from express-rate-limit (for the 'limit: 100' setting)
+    if (
+      rateLimitedReq.rateLimit &&
+      rateLimitedReq.rateLimit.current >= (optionsUsed.limit as number)
+    ) {
       res.status(optionsUsed.statusCode).send(optionsUsed.message);
       return;
     }
     next();
   },
-  keyGenerator: (req: ExpressRequest) => {
-    return req.ip || 'unknown-ip';
-  },
-  limit: 100, // General attempts for registration endpoint
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 // For attempts endpoint (user-based)
 const attemptRateLimitKeyGenerator = (req: ExpressRequest) => {
   const authenticatedReq = req as AuthenticatedRequest;
-  if (authenticatedReq.auth && authenticatedReq.auth.userLogin) {
-    return authenticatedReq.auth.userLogin;
+  if (authenticatedReq.user && authenticatedReq.user.id) {
+    return authenticatedReq.user.id; // Use user.id (login or other unique ID)
   }
-  // Fallback, though this route should be protected and req.auth present
-  return req.ip || 'unknown-ip';
+  return req.ip || 'unknown-ip-attempts'; // Fallback to IP if user somehow not identified
 };
 
 export const attemptsLimiterPerHour: RateLimitRequestHandler = rateLimit({
