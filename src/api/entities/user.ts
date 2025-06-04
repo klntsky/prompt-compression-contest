@@ -12,6 +12,9 @@ export class User {
   @Column({ type: 'varchar', length: 255, nullable: false })
   password!: string;
 
+  @Column({ type: 'boolean', default: false })
+  isAdmin!: boolean;
+
   @OneToMany(() => Attempt, attempt => attempt.user)
-  attempts!: Attempt[];
+  attempts!: Awaited<Attempt[]>;
 }

@@ -24,7 +24,7 @@ export class TestResult {
     nullable: false,
   })
   @JoinColumn({ name: 'attempt_id', referencedColumnName: 'id' })
-  attempt!: Attempt;
+  attempt!: Awaited<Attempt>;
 
   @ManyToOne(() => Test, test => test.testResults, {
     onDelete: 'CASCADE',
