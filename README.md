@@ -3,7 +3,7 @@
 The idea:
 
 1. build a dataset for prompts that do some task reliably, with test cases for each task,
-2. invite users to submit prompts that compress other prompts (less tokens -> better) 
+2. invite users to submit prompts that compress other prompts (less tokens -> better)
 3. Use the dataset to measure performance of rewritten prompts
 4. The prompt that compresses other prompts most efficiently wins the leaderboard.
 

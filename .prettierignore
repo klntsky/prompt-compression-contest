@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Data files (large JSON files that don't need formatting)
+data/
+
+# Configuration files (already formatted)
+*.config.js
+
+# Database migrations (auto-generated)
+src/api/migrations/
+
+# Package manager files
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Environment files
+.env
+.env.*
+
+# Git files
+.git/
+.gitignore 

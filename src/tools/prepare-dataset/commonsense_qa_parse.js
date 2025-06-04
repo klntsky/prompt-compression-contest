@@ -2,20 +2,18 @@
 import fs from 'fs';
 import { readParquet } from 'parquet-wasm';
 import { tableFromIPC } from 'apache-arrow';
+import { stringify } from 'fast-json-stable-stringify';
 
 async function convertAndTransform(inputPath, outputPath) {
   // Read the Parquet file
   const parquetData = fs.readFileSync(inputPath);
   const parquetBytes = new Uint8Array(parquetData);
-
   // Initialize WASM and parse the Parquet into an Arrow table
   const wasmTable = readParquet(parquetBytes);
   const ipcStream = wasmTable.intoIPCStream();
   const arrowTable = tableFromIPC(ipcStream);
-
   // Pull out plain JS row objects
   const rows = arrowTable.toArray();
-
   // Transform into { task, options, correctAnswer }
   const transformed = rows.map(({ question, choices, answerKey }) => {
     const idx = choices.label.indexOf(answerKey);
@@ -23,12 +21,11 @@ async function convertAndTransform(inputPath, outputPath) {
     return {
       task: question,
       options: choices.text,
-      correctAnswer
+      correctAnswer,
     };
   });
-
   // Write the output JSON
-  fs.writeFileSync(outputPath, JSON.stringify(transformed, null, 2), 'utf8');
+  fs.writeFileSync(outputPath, stringify(transformed), 'utf8');
 }
 
 (async () => {
@@ -36,10 +33,11 @@ async function convertAndTransform(inputPath, outputPath) {
   const inputPath = './data/commonsense_qa/train.parquet';
   const outputPath = './data/parsed/commonsense_qa.json';
   if (!inputPath || !outputPath) {
-    console.error('Usage: node convertAndTransformParquet.js <input.parquet> <output.json>');
+    console.error(
+      'Usage: node convertAndTransformParquet.js <input.parquet> <output.json>'
+    );
     process.exit(1);
   }
-
   try {
     await convertAndTransform(inputPath, outputPath);
     console.log(`✔ Converted & transformed ${inputPath} → ${outputPath}`);
