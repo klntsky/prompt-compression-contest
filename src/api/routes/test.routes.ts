@@ -1,11 +1,7 @@
-import { Router, Response } from 'express';
+import { Router, Response, Request } from 'express';
 import AppDataSource from '../data-source.js';
 import { Test } from '../entities/test.js';
-import {
-  AuthenticatedRequest,
-  authenticateToken,
-  isAdminMiddleware,
-} from '../middlewares.js';
+import { authenticateToken, isAdminMiddleware } from '../middlewares.js';
 
 const router = Router();
 
@@ -13,7 +9,7 @@ router.post(
   '/',
   authenticateToken,
   isAdminMiddleware,
-  async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  async (req: Request, res: Response): Promise<void> => {
     const { model, payload } = req.body;
 
     if (!model || !payload) {
@@ -33,29 +29,6 @@ router.post(
         .send({ message: 'Test submitted successfully.', testId: newTest.id });
     } catch (error: unknown) {
       console.error('Error submitting test:', error);
-      if (typeof error === 'object' && error !== null && 'code' in error) {
-        const dbError = error as { code: string | number; message?: string };
-        if (
-          dbError.code === '23505' ||
-          (dbError.message && dbError.message.includes('UQ_'))
-        ) {
-          res
-            .status(409)
-            .send(
-              'Conflict: A test with this model and payload already exists.'
-            );
-          return;
-        }
-      } else if (error instanceof Error) {
-        if (error.message.includes('UQ_')) {
-          res
-            .status(409)
-            .send(
-              'Conflict: A test with this model and payload already exists.'
-            );
-          return;
-        }
-      }
       res.status(500).send('An error occurred while submitting the test.');
     }
   }
