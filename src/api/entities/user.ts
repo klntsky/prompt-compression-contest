@@ -15,6 +15,6 @@ export class User {
   @Column({ type: 'boolean', default: false })
   isAdmin!: boolean;
 
-  @OneToMany(() => Attempt, attempt => attempt.user)
-  attempts!: Awaited<Attempt[]>;
+  @OneToMany('Attempt', (attempt: Attempt) => attempt.user)
+  attempts!: Attempt[];
 }

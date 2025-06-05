@@ -32,8 +32,8 @@ export class Attempt {
     nullable: false,
   })
   @JoinColumn({ name: 'login', referencedColumnName: 'login' })
-  user!: Awaited<User>;
+  user!: User;
 
-  @OneToMany(() => TestResult, testResult => testResult.attempt)
-  testResults!: Awaited<TestResult[]>;
+  @OneToMany('TestResult', (testResult: TestResult) => testResult.attempt)
+  testResults!: TestResult[];
 }
