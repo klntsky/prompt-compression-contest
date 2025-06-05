@@ -15,6 +15,7 @@ import flash from 'connect-flash';
 import authRouter, { seedAdminUser } from './routes/auth.routes.js';
 import attemptRouter from './routes/attempt.routes.js';
 import testRouter from './routes/test.routes.js';
+import FileStore from 'session-file-store';
 
 const app = express();
 app.set('trust proxy', 1);
@@ -22,16 +23,20 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Session configuration
-const sessionSecret = process.env.JWT_SECRET || process.env.SESSION_SECRET;
+const sessionSecret = process.env.SESSION_SECRET;
 if (!sessionSecret) {
   console.error(
-    'FATAL ERROR: JWT_SECRET or SESSION_SECRET environment variable for session is not set. Application will terminate.'
+    'FATAL ERROR: SESSION_SECRET environment variable for session is not set. Application will terminate.'
   );
   process.exit(1);
 }
 
+const fileStoreOptions = {};
+const FileStoreSession = FileStore(session);
+
 app.use(
   session({
+    store: new FileStoreSession(fileStoreOptions),
     secret: sessionSecret,
     resave: false,
     saveUninitialized: false,

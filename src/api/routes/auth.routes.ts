@@ -17,7 +17,6 @@ interface RegistrationPayload {
 
 const router = Router();
 
-// NEW: Local map for registration rate limiting, specific to this file
 const successfulRegistrationsLocal = new Map<string, number>();
 
 passport.use(
@@ -184,7 +183,6 @@ router.get('/logout', (req: Request, res: Response, next: NextFunction) => {
   });
 });
 
-// Added GET /auth/profile route for test script compatibility
 router.get('/profile', (req: Request, res: Response) => {
   if (req.isAuthenticated && req.isAuthenticated()) {
     res.json({

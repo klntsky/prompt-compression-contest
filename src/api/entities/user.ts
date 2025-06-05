@@ -3,7 +3,7 @@ import { Attempt } from './attempt.js';
 
 @Entity('user')
 export class User {
-  @PrimaryColumn({ length: 255 })
+  @PrimaryColumn({ type: 'varchar', length: 255 })
   login!: string;
 
   @Column({ type: 'varchar', length: 255, unique: true, nullable: false })
