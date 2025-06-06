@@ -121,9 +121,9 @@ describe('API Tests', () => {
       log('User login successful, redirected to:', response.headers.location);
 
       const profileRes = await userClient.get('/auth/profile');
-      expect(profileRes.data).to.exist;
-      expect(profileRes.data.user).to.exist;
-      expect(profileRes.data.user.id).to.equal(testUser.username);
+      expect(profileRes.data.user).to.deep.include({
+        id: testUser.username,
+      });
       log('Profile access verified for user:', profileRes.data.user);
     });
 
@@ -140,10 +140,10 @@ describe('API Tests', () => {
       log('Admin login successful, redirected to:', response.headers.location);
 
       const profileRes = await adminClient.get('/auth/profile');
-      expect(profileRes.data).to.exist;
-      expect(profileRes.data.user).to.exist;
-      expect(profileRes.data.user.id).to.equal(ADMIN_LOGIN);
-      expect(profileRes.data.user.isAdmin).to.be.true;
+      expect(profileRes.data.user).to.deep.include({
+        id: ADMIN_LOGIN,
+        isAdmin: true,
+      });
       log('Profile access verified for admin:', profileRes.data.user);
     });
   });
@@ -162,7 +162,7 @@ describe('API Tests', () => {
         attemptPayload
       );
       expect(response.status).to.equal(201);
-      expect(response.data.attemptId).to.exist;
+      expect(response.data).to.have.property('attemptId');
       log('Attempt submitted successfully:', response.data);
     });
 
@@ -207,9 +207,9 @@ describe('API Tests', () => {
       log('Rate limit test user logged in');
 
       const profileRes = await rateLimitUserClient.get('/auth/profile');
-      expect(profileRes.data).to.exist;
-      expect(profileRes.data.user).to.exist;
-      expect(profileRes.data.user.id).to.equal(rateLimitTestUser.username);
+      expect(profileRes.data.user).to.deep.include({
+        id: rateLimitTestUser.username,
+      });
       log('Profile access verified for rate limit test user');
 
       const attemptPayload = {
@@ -224,7 +224,9 @@ describe('API Tests', () => {
           attemptPayload
         );
         expect(response.status, `Attempt ${i + 1} status`).to.equal(201);
-        expect(response.data.attemptId, `Attempt ${i + 1} attemptId`).to.exist;
+        expect(response.data, `Attempt ${i + 1} data`).to.have.property(
+          'attemptId'
+        );
         log(
           `Attempt ${i + 1} submitted successfully:`,
           response.data.attemptId
@@ -261,7 +263,7 @@ describe('API Tests', () => {
       };
       const response = await adminClient.post('/api/tests/submit', testPayload);
       expect(response.status).to.equal(201);
-      expect(response.data.testId).to.exist;
+      expect(response.data).to.have.property('testId');
       log('Test submitted successfully by admin:', response.data);
     });
 
