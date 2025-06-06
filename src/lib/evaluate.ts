@@ -11,12 +11,40 @@ export interface TestCase {
 }
 
 /**
+ * Interface for the result of a single model answer call
+ */
+export interface ModelAnswerResult {
+  answer: string;
+  usage: OpenAI.CompletionUsage;
+}
+
+/**
+ * Interface for the result of a single test evaluation
+ */
+export interface EvaluationResult {
+  passed: boolean;
+  usage: OpenAI.CompletionUsage;
+}
+
+/**
  * Interface for the test suite results
  */
 export interface TestSuiteResult {
   success: boolean;
   passedTests: number;
   totalTests: number;
+  totalUsage: OpenAI.CompletionUsage;
+}
+
+/**
+ * Interface for the compression evaluation results
+ */
+export interface CompressionEvalResult {
+  uncompressedResults: TestSuiteResult;
+  compressedResults: TestSuiteResult;
+  compressionUsage: OpenAI.CompletionUsage;
+  compressionRatio: number;
+  passRateDifference: number;
 }
 
 /**
@@ -73,7 +101,7 @@ async function getModelAnswer(params: {
   task: string;
   options: string[];
   model: string;
-}): Promise<string> {
+}): Promise<ModelAnswerResult> {
   const { task, options, model } = params;
   const openai = createOpenAIClient();
   const tools = buildAnswerQuestionTools({ options });
@@ -95,8 +123,14 @@ async function getModelAnswer(params: {
     console.error(response, options);
     throw new Error('No tool call in response');
   }
+  if (!response.usage) {
+    throw new Error('No usage stats in response');
+  }
   const args = JSON.parse(toolCall.function.arguments);
-  return args.answer;
+  return {
+    answer: args.answer,
+    usage: response.usage,
+  };
 }
 
 /**
@@ -112,42 +146,50 @@ function isCorrect(params: { answer: string; correctAnswer: string }): boolean {
 /**
  * Evaluates a test case using a model
  * @param params Parameters for test evaluation
- * @returns Whether the test passed all attempts
+ * @returns Whether the test passed all attempts and token counts
  */
 export async function evaluatePrompt(params: {
   testCase: TestCase;
   attempts?: number;
   model: string;
-}): Promise<boolean> {
+}): Promise<EvaluationResult> {
   const { testCase, attempts = 1, model } = params;
   const { task, options, correctAnswer } = testCase;
+  const totalUsage: OpenAI.CompletionUsage = {
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    total_tokens: 0,
+  };
   try {
     for (let i = 0; i < attempts; i++) {
       try {
-        const answer = await getModelAnswer({
+        const { answer, usage } = await getModelAnswer({
           task,
           options,
           model,
         });
+        totalUsage.prompt_tokens += usage.prompt_tokens;
+        totalUsage.completion_tokens += usage.completion_tokens;
+        totalUsage.total_tokens += usage.total_tokens;
         if (!isCorrect({ answer, correctAnswer })) {
-          return false;
+          return { passed: false, usage: totalUsage };
         }
       } catch (error) {
         console.error('Error getting model answer:', (error as Error).message);
-        return false;
+        return { passed: false, usage: totalUsage };
       }
       // Add a small delay between attempts to be rate-limit friendly
       if (i < attempts - 1) {
         await new Promise(r => setTimeout(r, 1000));
       }
     }
-    return true;
+    return { passed: true, usage: totalUsage };
   } catch (error) {
     console.error(
       'Error during evaluation:',
       (error as Error).message || error
     );
-    return false;
+    return { passed: false, usage: totalUsage };
   }
 }
 
@@ -163,13 +205,21 @@ export async function evaluatePromptOnTestSuite(params: {
 }): Promise<TestSuiteResult> {
   const { testCases, attemptsPerTest = 1, model } = params;
   let passedTests = 0;
+  const totalUsage: OpenAI.CompletionUsage = {
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    total_tokens: 0,
+  };
   for (let i = 0; i < testCases.length; i++) {
-    const result = await evaluatePrompt({
+    const { passed, usage } = await evaluatePrompt({
       testCase: testCases[i],
       attempts: attemptsPerTest,
       model,
     });
-    if (result) {
+    totalUsage.prompt_tokens += usage.prompt_tokens;
+    totalUsage.completion_tokens += usage.completion_tokens;
+    totalUsage.total_tokens += usage.total_tokens;
+    if (passed) {
       passedTests++;
     }
     // Add a small delay between test cases to be rate-limit friendly
@@ -178,8 +228,129 @@ export async function evaluatePromptOnTestSuite(params: {
     }
   }
   return {
-    success: passedTests === testCases.length,
+    success: passedTests == testCases.length,
     passedTests,
     totalTests: testCases.length,
+    totalUsage,
+  };
+}
+
+/**
+ * Compresses a given text using a model and a prompt
+ * @param params Parameters for compressing text
+ * @returns The compressed text and the token usage for the compression
+ */
+async function getCompressedTask(params: {
+  task: string;
+  compressingPrompt: string;
+  model: string;
+}): Promise<{ compressedTask: string; usage: OpenAI.CompletionUsage }> {
+  const { task, compressingPrompt, model } = params;
+  const openai = createOpenAIClient();
+  await new Promise(r => setTimeout(r, 500)); // Rate limit friendly
+  const response = await openai.chat.completions.create({
+    model,
+    messages: [
+      { role: 'system', content: compressingPrompt },
+      { role: 'user', content: task },
+    ],
+  });
+
+  const compressedTask = response.choices[0]?.message?.content;
+  if (!compressedTask) {
+    throw new Error('Failed to get compressed task from model.');
+  }
+  if (!response.usage) {
+    throw new Error('No usage data in compression response');
+  }
+
+  return { compressedTask, usage: response.usage };
+}
+
+/**
+ * Evaluates a compressing prompt by testing it against a test suite
+ * and calculating the compression ratio and impact on performance.
+ * @param params Parameters for evaluating the compression
+ * @returns A detailed result of the compression evaluation
+ */
+export async function evaluateCompression(params: {
+  testCases: TestCase[];
+  compressingPrompt: string;
+  compressionModel: string;
+  evaluationModel: string;
+  attemptsPerTest?: number;
+}): Promise<CompressionEvalResult> {
+  const {
+    testCases,
+    compressingPrompt,
+    compressionModel,
+    evaluationModel,
+    attemptsPerTest = 1,
+  } = params;
+
+  // 1. Baseline evaluation
+  const uncompressedResults = await evaluatePromptOnTestSuite({
+    testCases,
+    model: evaluationModel,
+    attemptsPerTest,
+  });
+
+  // 2. Compress all tasks in parallel
+  const compressionPromises = testCases.map(testCase =>
+    getCompressedTask({
+      task: testCase.task,
+      compressingPrompt,
+      model: compressionModel,
+    })
+  );
+
+  const compressionActionResults = await Promise.all(compressionPromises);
+
+  const compressedTestCases: TestCase[] = [];
+  const compressionUsage: OpenAI.CompletionUsage = {
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    total_tokens: 0,
+  };
+
+  for (let i = 0; i < testCases.length; i++) {
+    const { compressedTask, usage } = compressionActionResults[i];
+    compressedTestCases.push({
+      ...testCases[i],
+      task: compressedTask,
+    });
+    compressionUsage.prompt_tokens += usage.prompt_tokens;
+    compressionUsage.completion_tokens += usage.completion_tokens;
+    compressionUsage.total_tokens += usage.total_tokens;
+  }
+
+  // 3. Evaluate compressed tasks
+  const compressedResults = await evaluatePromptOnTestSuite({
+    testCases: compressedTestCases,
+    model: evaluationModel,
+    attemptsPerTest,
+  });
+
+  // 4. Calculate metrics
+  const uncompressedPromptTokens = uncompressedResults.totalUsage.prompt_tokens;
+  const compressedPromptTokens = compressedResults.totalUsage.prompt_tokens;
+  const compressionRatio =
+    uncompressedPromptTokens > 0
+      ? (uncompressedPromptTokens - compressedPromptTokens) /
+        uncompressedPromptTokens
+      : 0;
+
+  const uncompressedPassRate =
+    uncompressedResults.passedTests / uncompressedResults.totalTests;
+  const compressedPassRate =
+    compressedResults.passedTests / compressedResults.totalTests;
+  const passRateDifference = compressedPassRate - uncompressedPassRate;
+
+  return {
+    uncompressedResults,
+    compressedResults,
+    compressionUsage,
+    compressionRatio,
+    passRateDifference,
   };
 }
