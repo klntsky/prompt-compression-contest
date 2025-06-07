@@ -4,9 +4,10 @@ import { Strategy as LocalStrategy, IVerifyOptions } from 'passport-local';
 import bcrypt from 'bcrypt';
 import zxcvbn from 'zxcvbn';
 import validator from 'validator';
-import { SALT_ROUNDS } from '../middlewares.js';
+import { AuthenticatedRequest, SALT_ROUNDS } from '../middlewares.js';
 import AppDataSource from '../data-source.js';
 import { User } from '../entities/user.js';
+import { SessionUser } from '../middlewares.js';
 
 // Define interfaces for request payloads
 interface RegistrationPayload {
@@ -26,7 +27,7 @@ passport.use(
       password,
       done: (
         error: unknown,
-        user?: Express.User | false, // Express.User should pick up the global definition
+        user?: Express.User | false,
         options?: IVerifyOptions
       ) => void
     ) => {
@@ -57,9 +58,9 @@ passport.use(
   )
 );
 
-passport.serializeUser((user: Express.User, done) => {
+passport.serializeUser((user, done) => {
   // user object here is { id: string, isAdmin: boolean } from LocalStrategy
-  done(null, user.id); // Only user.id (login) is stored in the session
+  done(null, (user as SessionUser).id); // Only user.id (login) is stored in the session
 });
 
 passport.deserializeUser(async (id: string, done) => {
@@ -86,7 +87,6 @@ router.get('/register', (req: Request, res: Response) => {
 });
 
 router.post('/register', async (req: Request, res: Response): Promise<void> => {
-  // NEW: Inline rate limiting logic using the local map
   const ip = req.ip;
   const currentSuccessfulOnLocalMap = ip
     ? successfulRegistrationsLocal.get(ip) || 0
@@ -185,9 +185,10 @@ router.get('/logout', (req: Request, res: Response, next: NextFunction) => {
 
 router.get('/profile', (req: Request, res: Response) => {
   if (req.isAuthenticated && req.isAuthenticated()) {
+    const authenticatedReq = req as AuthenticatedRequest;
     res.json({
       message: 'User profile data.',
-      user: req.user, // req.user should contain { id: string, isAdmin: boolean }
+      user: authenticatedReq.user, // req.user should contain { id: string, isAdmin: boolean }
     });
   } else {
     res.status(401).json({ message: 'Not authenticated' });
@@ -205,7 +206,6 @@ async function validateRegistration(
   }
   const blacklistedLogins: string[] = [
     'attempts',
-    
     'login',
     'register',
     'ban',

@@ -11,9 +11,14 @@ export interface RateLimitData {
   resetTime?: Date;
 }
 
+export interface SessionUser {
+  id: string; // This is the user's login/username
+  isAdmin: boolean;
+}
+
 // For requests that have been authenticated and might have rate limit info
 export interface AuthenticatedRequest extends Request {
-  user: Express.User;
+  user: SessionUser;
   rateLimit?: RateLimitData;
 }
 
