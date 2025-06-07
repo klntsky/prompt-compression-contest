@@ -48,7 +48,7 @@ router.post(
         return;
       }
       const newAttempt = new Attempt();
-      newAttempt.compressing_prompt = compressing_prompt;
+      newAttempt.compressingPrompt = compressing_prompt;
       newAttempt.model = model;
       newAttempt.login = userLogin;
       newAttempt.user = user;

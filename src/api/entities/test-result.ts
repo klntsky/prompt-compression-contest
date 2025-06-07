@@ -10,14 +10,17 @@ export class TestResult {
   @PrimaryColumn({ type: 'integer', name: 'test_id' })
   testId!: number;
 
-  @Column({ type: 'boolean', nullable: true })
-  is_valid?: boolean;
+  @Column({ name: 'is_valid', type: 'boolean', nullable: true, default: null })
+  isValid?: boolean;
 
-  @Column({ type: 'text', nullable: true })
-  compressed_prompt?: string;
+  @Column({ name: 'compressed_prompt', type: 'text', nullable: true })
+  compressedPrompt?: string;
 
-  @Column({ type: 'float', nullable: true })
-  compression_ratio?: number;
+  @Column({ name: 'compression_ratio', type: 'float', nullable: true })
+  compressionRatio?: number;
+
+  @Column({ name: 'is_failed', type: 'boolean', nullable: true, default: null })
+  isFailed?: boolean;
 
   @ManyToOne('Attempt', (attempt: Attempt) => attempt.testResults, {
     onDelete: 'CASCADE',

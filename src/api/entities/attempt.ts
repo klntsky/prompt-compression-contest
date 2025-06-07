@@ -18,8 +18,8 @@ export class Attempt {
   @CreateDateColumn({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   timestamp!: Date;
 
-  @Column({ type: 'text', nullable: false })
-  compressing_prompt!: string;
+  @Column({ name: 'compressing_prompt', type: 'text', nullable: false })
+  compressingPrompt!: string;
 
   @Column({ type: 'varchar', length: 255, nullable: false })
   model!: string;
