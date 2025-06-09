@@ -1,5 +1,7 @@
 import OpenAI from 'openai';
 import 'dotenv/config';
+import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import stringify from 'fast-json-stable-stringify';
 
 /**
  * Interface for a test case
@@ -16,6 +18,7 @@ export interface TestCase {
 export interface ModelAnswerResult {
   answer: string;
   usage: OpenAI.CompletionUsage;
+  requestJson: string;
 }
 
 /**
@@ -24,6 +27,7 @@ export interface ModelAnswerResult {
 export interface EvaluationResult {
   passed: boolean;
   usage: OpenAI.CompletionUsage;
+  requestJson?: string;
 }
 
 /**
@@ -106,18 +110,23 @@ async function getModelAnswer(params: {
   const openai = createOpenAIClient();
   const tools = buildAnswerQuestionTools({ options });
   await new Promise(r => setTimeout(r, 500));
-  const response = await openai.chat.completions.create({
+  const messages: ChatCompletionMessageParam[] = [
+    {
+      role: 'system',
+      content: "Answer user's question by calling answer_question function",
+    },
+    { role: 'user', content: task },
+  ];
+  const requestPayload = {
     model,
-    messages: [
-      {
-        role: 'system',
-        content: "Answer user's question by calling answer_question function",
-      },
-      { role: 'user', content: task },
-    ],
+    messages,
     tools,
-    tool_choice: { type: 'function', function: { name: 'answer_question' } },
-  });
+    tool_choice: {
+      type: 'function',
+      function: { name: 'answer_question' },
+    } as const,
+  };
+  const response = await openai.chat.completions.create(requestPayload);
   const toolCall = response?.choices?.[0]?.message?.tool_calls?.[0];
   if (!toolCall) {
     console.error(response, options);
@@ -130,6 +139,7 @@ async function getModelAnswer(params: {
   return {
     answer: args.answer,
     usage: response.usage,
+    requestJson: stringify(requestPayload),
   };
 }
 
@@ -160,36 +170,42 @@ export async function evaluatePrompt(params: {
     completion_tokens: 0,
     total_tokens: 0,
   };
+  let lastRequestJson: string | undefined;
   try {
     for (let i = 0; i < attempts; i++) {
       try {
-        const { answer, usage } = await getModelAnswer({
+        const { answer, usage, requestJson } = await getModelAnswer({
           task,
           options,
           model,
         });
+        lastRequestJson = requestJson;
         totalUsage.prompt_tokens += usage.prompt_tokens;
         totalUsage.completion_tokens += usage.completion_tokens;
         totalUsage.total_tokens += usage.total_tokens;
         if (!isCorrect({ answer, correctAnswer })) {
-          return { passed: false, usage: totalUsage };
+          return { passed: false, usage: totalUsage, requestJson };
         }
       } catch (error) {
         console.error('Error getting model answer:', (error as Error).message);
-        return { passed: false, usage: totalUsage };
+        return {
+          passed: false,
+          usage: totalUsage,
+          requestJson: lastRequestJson,
+        };
       }
       // Add a small delay between attempts to be rate-limit friendly
       if (i < attempts - 1) {
         await new Promise(r => setTimeout(r, 1000));
       }
     }
-    return { passed: true, usage: totalUsage };
+    return { passed: true, usage: totalUsage, requestJson: lastRequestJson };
   } catch (error) {
     console.error(
       'Error during evaluation:',
       (error as Error).message || error
     );
-    return { passed: false, usage: totalUsage };
+    return { passed: false, usage: totalUsage, requestJson: lastRequestJson };
   }
 }
 
@@ -228,7 +244,7 @@ export async function evaluatePromptOnTestSuite(params: {
     }
   }
   return {
-    success: passedTests == testCases.length,
+    success: passedTests === testCases.length,
     passedTests,
     totalTests: testCases.length,
     totalUsage,
@@ -240,21 +256,27 @@ export async function evaluatePromptOnTestSuite(params: {
  * @param params Parameters for compressing text
  * @returns The compressed text and the token usage for the compression
  */
-async function getCompressedTask(params: {
+export async function getCompressedTask(params: {
   task: string;
   compressingPrompt: string;
   model: string;
-}): Promise<{ compressedTask: string; usage: OpenAI.CompletionUsage }> {
+}): Promise<{
+  compressedTask: string;
+  usage: OpenAI.CompletionUsage;
+  requestJson: string;
+}> {
   const { task, compressingPrompt, model } = params;
   const openai = createOpenAIClient();
   await new Promise(r => setTimeout(r, 500)); // Rate limit friendly
-  const response = await openai.chat.completions.create({
+  const messages: ChatCompletionMessageParam[] = [
+    { role: 'system', content: compressingPrompt },
+    { role: 'user', content: task },
+  ];
+  const requestPayload = {
     model,
-    messages: [
-      { role: 'system', content: compressingPrompt },
-      { role: 'user', content: task },
-    ],
-  });
+    messages,
+  };
+  const response = await openai.chat.completions.create(requestPayload);
 
   const compressedTask = response.choices[0]?.message?.content;
   if (!compressedTask) {
@@ -264,7 +286,11 @@ async function getCompressedTask(params: {
     throw new Error('No usage data in compression response');
   }
 
-  return { compressedTask, usage: response.usage };
+  return {
+    compressedTask,
+    usage: response.usage,
+    requestJson: stringify(requestPayload),
+  };
 }
 
 /**
