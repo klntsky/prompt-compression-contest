@@ -27,9 +27,10 @@ export class TestResult {
     name: 'status',
     type: 'enum',
     enum: TestResultStatus,
-    default: TestResultStatus.PENDING,
+    nullable: true,
+    default: null,
   })
-  status!: TestResultStatus;
+  status?: TestResultStatus;
 
   @Column({
     name: 'compressed_prompt',

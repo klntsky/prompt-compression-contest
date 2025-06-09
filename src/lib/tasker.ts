@@ -3,118 +3,44 @@ import AppDataSource from '../api/data-source.js';
 import { Attempt } from '../api/entities/attempt.js';
 import { Test } from '../api/entities/test.js';
 import { TestResult, TestResultStatus } from '../api/entities/test-result.js';
-import { evaluatePrompt, getCompressedTask, TestCase } from './evaluate.js';
-import stringify from 'fast-json-stable-stringify';
+import { evaluateCompression, TestCase } from './evaluate.js';
 
 const POLL_INTERVAL = process.env.TASKER_POLL_INTERVAL
   ? parseInt(process.env.TASKER_POLL_INTERVAL, 10)
   : 5000;
 
 /**
- * Processes a single test case for a given attempt.
- * It creates a preliminary test result, runs the evaluation,
- * and then updates the result with the final outcome.
- * @param test The test to process.
- * @param attempt The attempt context.
- */
-async function processTest(test: Test, attempt: Attempt): Promise<void> {
-  const testResultRepo = AppDataSource.getRepository(TestResult);
-  console.log(`Processing test ${test.id} for attempt ${attempt.id}`);
-
-  // 1. Create a preliminary test result to "lock" it and prevent reprocessing.
-  const testResult = testResultRepo.create({
-    attemptId: attempt.id,
-    testId: test.id,
-  });
-  await testResultRepo.save(testResult);
-
-  try {
-    // 2. Run uncompressed and compressed evaluations.
-    const testCase: TestCase = JSON.parse(test.payload);
-    const evaluationModel = test.model;
-    const { compressingPrompt, model: compressionModel } = attempt;
-
-    const uncompressedResult = await evaluatePrompt({
-      testCase,
-      model: evaluationModel,
-    });
-
-    const { compressedTask, requestJson: compressionRequestJson } =
-      await getCompressedTask({
-        task: testCase.task,
-        compressingPrompt,
-        model: compressionModel,
-      });
-
-    const compressedTestCase: TestCase = { ...testCase, task: compressedTask };
-    const compressedResult = await evaluatePrompt({
-      testCase: compressedTestCase,
-      model: evaluationModel,
-    });
-
-    // 3. Calculate metrics and gather request data.
-    const uncompressedTokens = uncompressedResult.usage.prompt_tokens;
-    const compressedTokens = compressedResult.usage.prompt_tokens;
-    const compressionRatio =
-      uncompressedTokens > 0
-        ? (uncompressedTokens - compressedTokens) / uncompressedTokens
-        : 0;
-
-    const requests = {
-      compression: JSON.parse(compressionRequestJson),
-      evaluationUncompressed: uncompressedResult.requestJson
-        ? JSON.parse(uncompressedResult.requestJson)
-        : null,
-      evaluationCompressed: compressedResult.requestJson
-        ? JSON.parse(compressedResult.requestJson)
-        : null,
-    };
-
-    // 4. Update the test result with the final outcome.
-    testResult.status = compressedResult.passed
-      ? TestResultStatus.VALID
-      : TestResultStatus.FAILED;
-    testResult.compressedPrompt = compressedTask;
-    testResult.compressionRatio = compressionRatio;
-    testResult.requestJson = stringify(requests);
-
-    await testResultRepo.save(testResult);
-    console.log(
-      `Successfully processed test ${test.id} for attempt ${attempt.id}`
-    );
-  } catch (error) {
-    console.error(
-      `Failed to process test ${test.id} for attempt ${attempt.id}:`,
-      error
-    );
-    // 5. Explicitly mark the test as failed on error.
-    testResult.status = TestResultStatus.FAILED;
-    await testResultRepo.save(testResult);
-  }
-}
-
-/**
- * Finds and processes all pending tests for a given attempt in parallel.
- * @param attempt The attempt to process.
+ * Processes all pending tests for a given attempt.
+ *
+ * This function performs the following steps:
+ * 1. It finds all active tests that do not have a result for the given attempt.
+ * 2. It processes each of these tests in parallel.
+ *
+ * For each test, it will:
+ * a. Create a preliminary "pending" test result in the database to "lock" the
+ *    test, preventing other tasker instances from processing the same one.
+ * b. Run the compression and evaluation logic using `evaluateCompression`.
+ * c. Update the test result with the final outcome (valid, failed), along with
+ *    metrics.
+ * d. If any step fails, it marks the test as failed to ensure no test is left
+ *    in a pending state.
+ *
+ * @param attempt The attempt context, containing the compressing prompt and
+ * model information.
  */
 async function processAttempt(attempt: Attempt): Promise<void> {
   console.log(`Processing attempt ${attempt.id}`);
   const testRepo = AppDataSource.getRepository(Test);
+  const testResultRepo = AppDataSource.getRepository(TestResult);
 
-  // 1. Find all active tests for this attempt that haven't been processed yet.
+  // Find all active tests for the current attempt that don't have a result yet.
   const testsToProcess = await testRepo
     .createQueryBuilder('test')
-    .where('test.isActive = true')
-    .andWhere(qb => {
-      const subQuery = qb
-        .subQuery()
-        .select('1')
-        .from(TestResult, 'tr')
-        .where('tr.attempt_id = :attemptId', { attemptId: attempt.id })
-        .andWhere('tr.test_id = test.id')
-        .getQuery();
-      return `NOT EXISTS ${subQuery}`;
+    .leftJoin('test.testResults', 'tr', 'tr.attempt_id = :attemptId', {
+      attemptId: attempt.id,
     })
+    .where('test.isActive = true')
+    .andWhere('tr.attempt_id IS NULL')
     .getMany();
 
   if (testsToProcess.length === 0) {
@@ -126,8 +52,70 @@ async function processAttempt(attempt: Attempt): Promise<void> {
     `Found ${testsToProcess.length} tests to process for attempt ${attempt.id}`
   );
 
-  // 2. Process all tests for the attempt in parallel.
-  await Promise.all(testsToProcess.map(test => processTest(test, attempt)));
+  // Process all the pending tests in parallel.
+  const processingPromises = testsToProcess.map(async test => {
+    console.log(`Processing test ${test.id} for attempt ${attempt.id}`);
+
+    // Create a preliminary test result to "lock" the test and prevent other
+    // instances from processing it.
+    const testResult = testResultRepo.create({
+      attemptId: attempt.id,
+      testId: test.id,
+      status: TestResultStatus.PENDING,
+    });
+    try {
+      await testResultRepo.save(testResult);
+    } catch (error) {
+      // This likely failed due to a unique constraint violation, meaning another
+      // tasker instance picked it up. We can safely skip processing.
+      console.warn(
+        `Failed to create test result for test ${test.id}, attempt ${attempt.id}. It might already be processing by another tasker instance.`,
+        error
+      );
+      return;
+    }
+
+    // Run the full evaluation and update the test result with the final outcome.
+    try {
+      const testCase: TestCase = {
+        id: test.id,
+        ...JSON.parse(test.payload),
+      };
+
+      const compressionResult = await evaluateCompression({
+        testCases: [testCase],
+        compressingPrompt: attempt.compressingPrompt,
+        compressionModel: attempt.model,
+        evaluationModel: test.model,
+      });
+
+      const result = compressionResult.results[0];
+
+      // Update test result with the final outcome.
+      testResult.status = result.compressedResult.passed
+        ? TestResultStatus.VALID
+        : TestResultStatus.FAILED;
+      testResult.compressedPrompt = result.compressedTask;
+      testResult.compressionRatio = result.compressionRatio;
+      testResult.requestJson = result.requestJson;
+
+      await testResultRepo.save(testResult);
+
+      console.log(
+        `Successfully processed test ${test.id} for attempt ${attempt.id}`
+      );
+    } catch (error) {
+      console.error(
+        `Failed to process test ${test.id} for attempt ${attempt.id}:`,
+        error
+      );
+      // On failure, explicitly mark the test as failed to prevent it from being
+      // stuck in a pending state.
+      testResult.status = TestResultStatus.FAILED;
+      await testResultRepo.save(testResult);
+    }
+  });
+  await Promise.all(processingPromises);
 }
 
 /**
@@ -138,30 +126,23 @@ async function run() {
   console.log('Tasker started, connected to DB.');
 
   // The main loop continuously polls for new attempts to process.
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     try {
       const attemptRepo = AppDataSource.getRepository(Attempt);
 
-      // 1. Find the oldest attempt with pending tests.
+      // 1. Find the oldest attempt with no test results.
       const attempt = await attemptRepo
         .createQueryBuilder('attempt')
         .where(qb => {
           const subQuery = qb
             .subQuery()
-            .select('1')
+            .select('test.id')
             .from(Test, 'test')
+            .leftJoin('test.testResults', 'tr', 'tr.attempt_id = attempt.id')
             .where('test.isActive = true')
-            .andWhere(
-              `NOT EXISTS (
-                SELECT 1 
-                FROM test_result tr 
-                WHERE tr.attempt_id = attempt.id 
-                AND tr.test_id = test.id
-              )`
-            )
+            .andWhere('tr.attempt_id IS NULL')
             .getQuery();
-          return `EXISTS ${subQuery}`;
+          return `EXISTS (${subQuery})`;
         })
         .orderBy('attempt.timestamp', 'ASC')
         .getOne();

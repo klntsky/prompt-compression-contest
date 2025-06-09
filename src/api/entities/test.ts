@@ -19,7 +19,12 @@ export class Test {
   @Column({ type: 'text', nullable: false })
   payload!: string;
 
-  @Column({ name: 'is_active', type: 'boolean', nullable: false, default: true })
+  @Column({
+    name: 'is_active',
+    type: 'boolean',
+    nullable: false,
+    default: true,
+  })
   isActive!: boolean;
 
   @OneToMany('TestResult', (testResult: TestResult) => testResult.test)
