@@ -22,7 +22,7 @@
     "fix": "pnpm format && pnpm lint:fix",
     "clean": "rimraf dist",
     "build": "pnpm run clean && tsc --project tsconfig.json",
-    "start": "tsx dist/api/index.js"
+    "start": "node dist/api/index.js"
   },
   "keywords": [],
   "author": "klntsky",
