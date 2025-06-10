@@ -34,6 +34,6 @@ export class Attempt {
   @JoinColumn({ name: 'login', referencedColumnName: 'login' })
   user!: User;
 
-  @OneToMany(() => TestResult, testResult => testResult.attempt)
+  @OneToMany('TestResult', (testResult: TestResult) => testResult.attempt)
   testResults!: TestResult[];
 }

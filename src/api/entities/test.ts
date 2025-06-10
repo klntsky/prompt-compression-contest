@@ -19,6 +19,6 @@ export class Test {
   @Column({ type: 'text', nullable: false })
   payload!: string;
 
-  @OneToMany(() => TestResult, testResult => testResult.test)
+  @OneToMany('TestResult', (testResult: TestResult) => testResult.test)
   testResults!: TestResult[];
 }

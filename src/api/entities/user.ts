@@ -3,7 +3,7 @@ import { Attempt } from './attempt.js';
 
 @Entity('user')
 export class User {
-  @PrimaryColumn({ length: 255 })
+  @PrimaryColumn({ type: 'varchar', length: 255 })
   login!: string;
 
   @Column({ type: 'varchar', length: 255, unique: true, nullable: false })
@@ -12,6 +12,9 @@ export class User {
   @Column({ type: 'varchar', length: 255, nullable: false })
   password!: string;
 
-  @OneToMany(() => Attempt, attempt => attempt.user)
+  @Column({ type: 'boolean', default: false })
+  isAdmin!: boolean;
+
+  @OneToMany('Attempt', (attempt: Attempt) => attempt.user)
   attempts!: Attempt[];
 }

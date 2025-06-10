@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import typescript from '@typescript-eslint/eslint-plugin';
 import typescriptParser from '@typescript-eslint/parser';
 import prettierConfig from 'eslint-config-prettier/flat';
+import globals from 'globals';
 
 export default [
   js.configs.recommended,
@@ -65,6 +66,14 @@ export default [
     rules: {
       'no-console': 'off',
       'no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0, maxBOF: 0 }],
+    },
+  },
+  {
+    files: ['test/**/*.spec.mjs', '**/*.test.mjs'],
+    languageOptions: {
+      globals: {
+        ...globals.mocha,
+      },
     },
   },
   prettierConfig,

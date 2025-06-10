@@ -19,7 +19,7 @@ export class TestResult {
   @Column({ type: 'float', nullable: true })
   compression_ratio?: number;
 
-  @ManyToOne(() => Attempt, attempt => attempt.testResults, {
+  @ManyToOne('Attempt', (attempt: Attempt) => attempt.testResults, {
     onDelete: 'CASCADE',
     nullable: false,
   })
