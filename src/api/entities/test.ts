@@ -5,7 +5,7 @@ import {
   OneToMany,
   Unique,
 } from 'typeorm';
-import { TestResult } from './test-result.js';
+import { TestResult, TestResultStatus } from './test-result.js';
 
 @Entity({ name: 'test' })
 @Unique(['model', 'payload'])
@@ -26,6 +26,31 @@ export class Test {
     default: true,
   })
   isActive!: boolean;
+
+  @Column({
+    name: 'uncompressed_status',
+    type: 'enum',
+    enum: TestResultStatus,
+    nullable: true,
+    default: null,
+  })
+  uncompressedStatus?: TestResultStatus;
+
+  @Column({
+    name: 'uncompressed_request_json',
+    type: 'text',
+    nullable: true,
+    default: null,
+  })
+  uncompressedRequestJson?: string;
+
+  @Column({
+    name: 'uncompressed_prompt_tokens',
+    type: 'integer',
+    nullable: true,
+    default: null,
+  })
+  uncompressedPromptTokens?: number;
 
   @OneToMany('TestResult', (testResult: TestResult) => testResult.test)
   testResults!: TestResult[];
