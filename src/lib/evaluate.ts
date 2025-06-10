@@ -258,7 +258,7 @@ export async function evaluateCompression(params: {
     evaluationModel,
     attemptsPerTest = 1,
   } = params;
-  // 1. Evaluate uncompressed and compress task in parallel
+  // 1. Compress task in parallel
   const compressionOutput = await getCompressedTask({
     task: testCase.task,
     compressingPrompt,

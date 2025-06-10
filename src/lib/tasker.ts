@@ -60,12 +60,8 @@ async function evaluateUncompressedTest(test: Test): Promise<void> {
 }
 
 /**
- * Processes all pending tests for a given attempt.
- *
- * This function performs the following steps:
- * 1. Finds all active tests that do not have a result for the given attempt.
- * 2. Ensures that all uncompressed tests have been evaluated before proceeding.
- * 3. Processes each of these tests in parallel.
+ * Finds all active tests that do not have a result for the given attempt and 
+ * processes each of these tests in parallel
  *
  * For each test, it will:
  * a. Create a "pending" test result to lock the test.
