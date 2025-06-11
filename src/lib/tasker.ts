@@ -1,66 +1,16 @@
 import 'dotenv/config';
 import AppDataSource from '../api/data-source.js';
-import { Attempt, AttemptStatus } from '../api/entities/attempt.js';
+import { Attempt } from '../api/entities/attempt.js';
 import { Test } from '../api/entities/test.js';
 import { TestResult, TestResultStatus } from '../api/entities/test-result.js';
-import {
-  evaluateCompression,
-  evaluatePrompt,
-  TestCase,
-  EvaluationResult,
-} from './evaluate.js';
-import { IsNull } from 'typeorm';
+import { evaluateCompression } from './evaluate.js';
 
 const POLL_INTERVAL = process.env.TASKER_POLL_INTERVAL
   ? parseInt(process.env.TASKER_POLL_INTERVAL, 10)
   : 5000;
 
 /**
- * Evaluates an uncompressed test case and caches the result in the database.
- * A lock is implemented by setting the test's uncompressedStatus to 'pending',
- * which prevents other tasker instances from processing the same test.
- *
- * @param test The test to evaluate.
- */
-async function evaluateUncompressedTest(test: Test): Promise<void> {
-  // If the uncompressed test has already been run, we can skip it.
-  if (test.uncompressedStatus !== null) {
-    return;
-  }
-  const testRepo = AppDataSource.getRepository(Test);
-  try {
-    // Lock the test by setting its status to PENDING.
-    test.uncompressedStatus = TestResultStatus.PENDING;
-    await testRepo.save(test);
-  } catch {
-    // We can safely assume another tasker instance is handling it.
-    console.warn(
-      `Failed to lock uncompressed test ${test.id}. It may already be processing.`
-    );
-    return;
-  }
-  console.log(`Evaluating uncompressed test ${test.id}`);
-  const testCase: TestCase = {
-    id: test.id,
-    ...JSON.parse(test.payload),
-  };
-  const uncompressedResult = await evaluatePrompt({
-    testCase,
-    model: test.model,
-  });
-  test.uncompressedStatus = uncompressedResult.passed
-    ? TestResultStatus.VALID
-    : TestResultStatus.FAILED;
-  test.uncompressedRequestJson = uncompressedResult.requestJson;
-  test.uncompressedPromptTokens = uncompressedResult.usage.prompt_tokens;
-  await testRepo.save(test);
-  console.log(
-    `Uncompressed test ${test.id} evaluated. Status: ${test.uncompressedStatus}`
-  );
-}
-
-/**
- * Finds all active tests that do not have a result for the given attempt and 
+ * Finds all active tests that do not have a result for the given attempt and
  * processes each of these tests in parallel
  *
  * For each test, it will:
@@ -110,36 +60,9 @@ async function processAttempt(attempt: Attempt): Promise<void> {
         return;
       }
       try {
-        const freshTest = await testRepo.findOneBy({ id: test.id });
-        if (
-          !freshTest ||
-          freshTest.uncompressedStatus === TestResultStatus.PENDING ||
-          !freshTest.uncompressedStatus
-        ) {
-          throw new Error(
-            `Uncompressed test ${test.id} has not been evaluated yet.`
-          );
-        }
-        if (freshTest.uncompressedStatus !== TestResultStatus.VALID) {
-          console.log(
-            `Skipping compression for test ${test.id} as it failed the uncompressed evaluation.`
-          );
-          testResult.status = TestResultStatus.FAILED;
-          await testResultRepo.save(testResult);
-          return;
-        }
-        const uncompressedResult: EvaluationResult = {
-          passed: true,
-          usage: {
-            prompt_tokens: freshTest.uncompressedPromptTokens || 0,
-            completion_tokens: 0,
-            total_tokens: 0,
-          },
-          requestJson: freshTest.uncompressedRequestJson,
-        };
         const result = await evaluateCompression({
           testCase: { id: test.id, ...JSON.parse(test.payload) },
-          uncompressedResult,
+          uncompressedTotalTokens: test.totalTokens || 0,
           compressingPrompt: attempt.compressingPrompt,
           compressionModel: attempt.model,
           evaluationModel: test.model,
@@ -179,7 +102,7 @@ async function aggregateAttemptResults(attempt: Attempt): Promise<void> {
     where: { attemptId: attempt.id },
   });
   const totalTests = await testRepo.count({
-    where: { isActive: true, uncompressedStatus: TestResultStatus.VALID },
+    where: { isActive: true },
   });
   if (testResults.length < totalTests) {
     return;
@@ -194,10 +117,6 @@ async function aggregateAttemptResults(attempt: Attempt): Promise<void> {
   }
   const averageCompressionRatio =
     testsPassed > 0 ? totalCompressionRatio / testsPassed : 0;
-  attempt.status =
-    totalTests > 0 && testsPassed === totalTests
-      ? AttemptStatus.COMPLETED
-      : AttemptStatus.FAILED;
   attempt.averageCompressionRatio = averageCompressionRatio;
   await attemptRepo.save(attempt);
   console.log(`Attempt ${attempt.id} has been fully processed and aggregated.`);
@@ -207,11 +126,10 @@ async function aggregateAttemptResults(attempt: Attempt): Promise<void> {
  * Runs the main tasker process loop.
  *
  * This function performs the following steps in a continuous loop:
- * 1. Evaluates any uncompressed tests that have not yet been processed.
- * 2. Finds the oldest pending attempt that still has tests to run.
- * 3. Processes all remaining tests for the identified attempt.
- * 4. Aggregates the results once the attempt is fully processed.
- * 5. Waits for a defined interval before starting the next cycle.
+ * 1. Finds the oldest pending attempt that still has tests to run.
+ * 2. Processes all remaining tests for the identified attempt.
+ * 3. Aggregates the results once the attempt is fully processed.
+ * 4. If no attempts left waits for a defined interval before starting the next cycle.
  */
 async function run() {
   await AppDataSource.initialize();
@@ -220,39 +138,30 @@ async function run() {
     try {
       const attemptRepo = AppDataSource.getRepository(Attempt);
       const testRepo = AppDataSource.getRepository(Test);
-      const testsToEvaluate = await testRepo.find({
-        where: { uncompressedStatus: IsNull(), isActive: true },
+      const activeTestsCount = await testRepo.count({
+        where: { isActive: true },
       });
-      if (testsToEvaluate.length > 0) {
-        console.log(
-          `Found ${testsToEvaluate.length} uncompressed tests to evaluate.`
-        );
-        await Promise.all(testsToEvaluate.map(evaluateUncompressedTest));
-      }
       const attempt = await attemptRepo
         .createQueryBuilder('attempt')
-        .where(qb => {
-          const subQuery = qb
-            .subQuery()
-            .select('test.id')
-            .from(Test, 'test')
-            .leftJoin('test.testResults', 'tr', 'tr.attempt_id = attempt.id')
-            .where('test.isActive = true')
-            .andWhere('tr.attempt_id IS NULL')
-            .getQuery();
-          return `EXISTS (${subQuery})`;
+        .leftJoin('attempt.testResults', 'testResult')
+        .leftJoin('testResult.test', 'test', 'test.isActive = true')
+        .groupBy('attempt.id')
+        .having('COUNT(test.id) < :activeTestsCount', {
+          activeTestsCount,
         })
-        .andWhere('attempt.status = :status', { status: AttemptStatus.PENDING })
         .orderBy('attempt.timestamp', 'ASC')
         .getOne();
       if (attempt) {
         await processAttempt(attempt);
         await aggregateAttemptResults(attempt);
+      } else {
+        console.log('No pending attempts found, waiting for next poll.');
+        await AppDataSource.destroy();
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
       }
     } catch (error) {
       console.error('An error occurred in the tasker loop:', error);
     }
-    await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
   }
 }
 

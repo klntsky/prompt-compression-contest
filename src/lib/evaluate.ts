@@ -25,10 +25,18 @@ export interface ModelAnswerResult {
 /**
  * Interface for the result of a single test evaluation
  */
-export interface EvaluationResult {
+export interface EvaluatePromptResult {
   passed: boolean;
   usage: OpenAI.CompletionUsage;
   requestJson?: string;
+}
+
+/**
+ * Interface for the result of a single test evaluation
+ */
+export interface TestCaseResult {
+  testCase: TestCase;
+  result: EvaluatePromptResult;
 }
 
 /**
@@ -36,8 +44,7 @@ export interface EvaluationResult {
  */
 export interface TestCompressionResult {
   testCase: TestCase;
-  uncompressedResult: EvaluationResult;
-  compressedResult: EvaluationResult;
+  compressedResult: EvaluatePromptResult;
   compressionUsage: OpenAI.CompletionUsage;
   compressionRatio: number;
   compressedTask: string;
@@ -154,7 +161,7 @@ export async function evaluatePrompt(params: {
   testCase: TestCase;
   attempts?: number;
   model: string;
-}): Promise<EvaluationResult> {
+}): Promise<EvaluatePromptResult> {
   const { testCase, attempts = 1, model } = params;
   const { task, options, correctAnswer } = testCase;
   const totalUsage: OpenAI.CompletionUsage = {
@@ -176,7 +183,11 @@ export async function evaluatePrompt(params: {
         totalUsage.completion_tokens += usage.completion_tokens;
         totalUsage.total_tokens += usage.total_tokens;
         if (!isCorrect({ answer, correctAnswer })) {
-          return { passed: false, usage: totalUsage, requestJson };
+          return {
+            passed: false,
+            usage: totalUsage,
+            requestJson: lastRequestJson,
+          };
         }
       } catch (error) {
         console.error('Error getting model answer:', (error as Error).message);
@@ -244,7 +255,7 @@ export async function getCompressedTask(params: {
  */
 export async function evaluateCompression(params: {
   testCase: TestCase;
-  uncompressedResult: EvaluationResult;
+  uncompressedTotalTokens: number;
   compressingPrompt: string;
   compressionModel: string;
   evaluationModel: string;
@@ -252,7 +263,7 @@ export async function evaluateCompression(params: {
 }): Promise<TestCompressionResult> {
   const {
     testCase,
-    uncompressedResult,
+    uncompressedTotalTokens,
     compressingPrompt,
     compressionModel,
     evaluationModel,
@@ -280,24 +291,19 @@ export async function evaluateCompression(params: {
     attempts: attemptsPerTest,
   });
   // 3. Calculate metrics for this test case
-  const uncompressedPromptTokens = uncompressedResult.usage.prompt_tokens;
-  const compressedPromptTokens = compressedResult.usage.prompt_tokens;
+  const compressedTotalTokens = compressedResult.usage.total_tokens;
   const compressionRatio =
-    uncompressedPromptTokens > 0
-      ? uncompressedPromptTokens / compressedPromptTokens
+    uncompressedTotalTokens > 0
+      ? uncompressedTotalTokens / compressedTotalTokens
       : 0;
   const requests = {
     compression: JSON.parse(compressionRequestJson),
-    evaluationUncompressed: uncompressedResult.requestJson
-      ? JSON.parse(uncompressedResult.requestJson)
-      : null,
     evaluationCompressed: compressedResult.requestJson
       ? JSON.parse(compressedResult.requestJson)
       : null,
   };
   return {
     testCase,
-    uncompressedResult,
     compressedResult,
     compressionUsage,
     compressionRatio,

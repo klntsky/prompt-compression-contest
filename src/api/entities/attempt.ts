@@ -10,12 +10,6 @@ import {
 import { User } from './user.js';
 import { TestResult } from './test-result.js';
 
-export enum AttemptStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-}
-
 @Entity({ name: 'attempt' })
 export class Attempt {
   @PrimaryGeneratedColumn()
@@ -32,13 +26,6 @@ export class Attempt {
 
   @Column({ type: 'varchar', length: 255, name: 'login', nullable: false })
   login!: string;
-
-  @Column({
-    type: 'enum',
-    enum: AttemptStatus,
-    default: AttemptStatus.PENDING,
-  })
-  status!: AttemptStatus;
 
   @Column({
     name: 'average_compression_ratio',

@@ -205,7 +205,6 @@ async function validateRegistration(
   }
   const blacklistedLogins: string[] = [
     'attempts',
-    
     'login',
     'register',
     'ban',
