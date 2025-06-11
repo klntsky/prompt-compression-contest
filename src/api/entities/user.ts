@@ -12,7 +12,7 @@ export class User {
   @Column({ type: 'varchar', length: 255, nullable: false })
   password!: string;
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ name: 'is_admin', type: 'boolean', default: false })
   isAdmin!: boolean;
 
   @OneToMany('Attempt', (attempt: Attempt) => attempt.user)

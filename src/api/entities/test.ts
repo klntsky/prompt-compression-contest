@@ -19,6 +19,22 @@ export class Test {
   @Column({ type: 'text', nullable: false })
   payload!: string;
 
+  @Column({
+    name: 'is_active',
+    type: 'boolean',
+    nullable: false,
+    default: true,
+  })
+  isActive!: boolean;
+
+  @Column({
+    name: 'total_tokens',
+    type: 'integer',
+    nullable: true,
+    default: null,
+  })
+  totalTokens?: number;
+
   @OneToMany('TestResult', (testResult: TestResult) => testResult.test)
   testResults!: TestResult[];
 }
