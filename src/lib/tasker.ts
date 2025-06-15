@@ -41,85 +41,74 @@ async function processAttempt(attempt: Attempt): Promise<void> {
   console.log(
     `Found ${testsToProcess.length} tests to process for attempt ${attempt.id}`
   );
-  await Promise.all(
-    testsToProcess.map(async test => {
-      console.log(`Processing test ${test.id} for attempt ${attempt.id}`);
-      // Create a preliminary test result to "lock" the test and prevent other
-      // instances from processing it.
-      const testResult = testResultRepo.create({
-        attemptId: attempt.id,
-        testId: test.id,
-        status: TestResultStatus.PENDING,
+  // Process each test in a loop.
+  let testsPassed = 0;
+  let totalCompressionRatio = 0;
+  for (const test of testsToProcess) {
+    console.log(`Processing test ${test.id} for attempt ${attempt.id}`);
+    // Create a preliminary test result to "lock" the test and prevent other
+    // instances from processing it.
+    const testResult = testResultRepo.create({
+      attemptId: attempt.id,
+      testId: test.id,
+      status: TestResultStatus.PENDING,
+    });
+    try {
+      await testResultRepo.save(testResult);
+    } catch {
+      console.warn(
+        `Failed to create test result for test ${test.id}, attempt ${attempt.id}. It may already be processing.`
+      );
+      continue;
+    }
+    try {
+      const result = await evaluateCompression({
+        testCase: { id: test.id, ...JSON.parse(test.payload) },
+        uncompressedTotalTokens: test.totalTokens || 0,
+        compressingPrompt: attempt.compressingPrompt,
+        compressionModel: attempt.model,
+        evaluationModel: test.model,
       });
-      try {
-        await testResultRepo.save(testResult);
-      } catch {
-        console.warn(
-          `Failed to create test result for test ${test.id}, attempt ${attempt.id}. It may already be processing.`
-        );
-        return;
-      }
-      try {
-        const result = await evaluateCompression({
-          testCase: { id: test.id, ...JSON.parse(test.payload) },
-          uncompressedTotalTokens: test.totalTokens || 0,
-          compressingPrompt: attempt.compressingPrompt,
-          compressionModel: attempt.model,
-          evaluationModel: test.model,
-        });
-        // Update test result with the final outcome.
-        testResult.status = result.compressedResult.passed
-          ? TestResultStatus.VALID
-          : TestResultStatus.FAILED;
-        testResult.compressedPrompt = result.compressedTask;
-        testResult.compressionRatio = result.compressionRatio;
-        testResult.requestJson = result.requestJson;
-        await testResultRepo.save(testResult);
+      // Update test result with the final outcome.
+      testResult.status = result.compressedResult.passed
+        ? TestResultStatus.VALID
+        : TestResultStatus.FAILED;
+      testResult.compressedPrompt = result.compressedTask;
+      testResult.compressionRatio = result.compressionRatio;
+      testResult.requestJson = result.requestJson;
+      await testResultRepo.save(testResult);
+      if (testResult.status === TestResultStatus.VALID) {
+        testsPassed++;
+        totalCompressionRatio += result.compressionRatio;
         console.log(
           `Successfully processed test ${test.id} for attempt ${attempt.id}`
         );
-      } catch (error) {
-        console.error(
-          `Failed to process test ${test.id} for attempt ${attempt.id}:`,
-          error
-        );
-        testResult.status = TestResultStatus.FAILED;
-        await testResultRepo.save(testResult);
+      } else {
+        throw new Error('Test evaluation failed');
       }
-    })
-  );
-}
-
-/**
- * Aggregates the results of a completed attempt and updates the database.
- * @param attempt The attempt to aggregate results for.
- */
-async function aggregateAttemptResults(attempt: Attempt): Promise<void> {
-  const testResultRepo = AppDataSource.getRepository(TestResult);
-  const testRepo = AppDataSource.getRepository(Test);
-  const attemptRepo = AppDataSource.getRepository(Attempt);
-  const testResults = await testResultRepo.find({
-    where: { attemptId: attempt.id },
-  });
-  const totalTests = await testRepo.count({
-    where: { isActive: true },
-  });
-  if (testResults.length < totalTests) {
-    return;
-  }
-  let testsPassed = 0;
-  let totalCompressionRatio = 0;
-  for (const result of testResults) {
-    if (result.status === TestResultStatus.VALID) {
-      testsPassed++;
-      totalCompressionRatio += result.compressionRatio || 0;
+    } catch (error) {
+      console.error(
+        `Failed to process test ${test.id} for attempt ${attempt.id}:`,
+        error
+      );
+      testResult.status = TestResultStatus.FAILED;
+      await testResultRepo.save(testResult);
+      return;
     }
   }
-  const averageCompressionRatio =
-    testsPassed > 0 ? totalCompressionRatio / testsPassed : 0;
-  attempt.averageCompressionRatio = averageCompressionRatio;
-  await attemptRepo.save(attempt);
-  console.log(`Attempt ${attempt.id} has been fully processed and aggregated.`);
+  // Aggregate the results of the attempt.
+  try {
+    const attemptRepo = AppDataSource.getRepository(Attempt);
+    const averageCompressionRatio =
+      testsPassed > 0 ? totalCompressionRatio / testsPassed : 0;
+    attempt.averageCompressionRatio = averageCompressionRatio;
+    await attemptRepo.save(attempt);
+    console.log(
+      `Attempt ${attempt.id} has been fully processed and aggregated.`
+    );
+  } catch (error) {
+    console.error(`Failed to aggregate attempt ${attempt.id}:`, error);
+  }
 }
 
 /**
@@ -131,7 +120,7 @@ async function aggregateAttemptResults(attempt: Attempt): Promise<void> {
  * 3. Aggregates the results once the attempt is fully processed.
  * 4. If no attempts left waits for a defined interval before starting the next cycle.
  */
-async function run() {
+export async function startTasker() {
   await AppDataSource.initialize();
   console.log('Tasker started, connected to DB.');
   while (true) {
@@ -145,15 +134,22 @@ async function run() {
         .createQueryBuilder('attempt')
         .leftJoin('attempt.testResults', 'testResult')
         .leftJoin('testResult.test', 'test', 'test.isActive = true')
+        .leftJoin(
+          'attempt.testResults',
+          'failedTestResult',
+          'failedTestResult.status = :status',
+          { status: TestResultStatus.FAILED }
+        )
+        .where('attempt.averageCompressionRatio IS NULL')
+        .andWhere('failedTestResult.id IS NULL')
         .groupBy('attempt.id')
-        .having('COUNT(test.id) < :activeTestsCount', {
+        .having('COUNT(DISTINCT test.id) < :activeTestsCount', {
           activeTestsCount,
         })
         .orderBy('attempt.timestamp', 'ASC')
         .getOne();
       if (attempt) {
         await processAttempt(attempt);
-        await aggregateAttemptResults(attempt);
       } else {
         console.log('No pending attempts found, waiting for next poll.');
         await AppDataSource.destroy();
@@ -164,8 +160,3 @@ async function run() {
     }
   }
 }
-
-run().catch(error => {
-  console.error('Tasker failed to start:', error);
-  process.exit(1);
-});
