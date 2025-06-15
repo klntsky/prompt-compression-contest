@@ -114,7 +114,7 @@ async function processFile(
       `Randomly sampled ${sampledDataset.length} entries from dataset`
     );
     // Use a single call to filterFlakyTestCases instead of chunking by one
-    const nonFlakyEntries = await filterFlakyTestCases({
+    const filteredTestCases = await filterFlakyTestCases({
       dataset: sampledDataset,
       numAttempts: numAttempts,
       model: model,
@@ -124,7 +124,7 @@ async function processFile(
     printStatus(
       sampledDataset.length,
       sampledDataset.length,
-      nonFlakyEntries.length
+      filteredTestCases.length
     );
     // Check if output file exists and combine with existing data
     let existingEntries: TestCase[] = [];
@@ -141,28 +141,32 @@ async function processFile(
       );
     }
     // Combine new entries with existing ones and remove duplicates
-    const combinedEntries = combineAndDedup([existingEntries, nonFlakyEntries]);
+    const combinedEntries = combineAndDedup([
+      existingEntries,
+      filteredTestCases.map(entry => entry.testCase),
+    ]);
     // Create output directory if it doesn't exist
     await fs.mkdir(path.dirname(outputFile), { recursive: true });
     await fs.writeFile(outputFile, stringify(combinedEntries), 'utf-8');
     // Write to database
-    if (nonFlakyEntries.length > 0) {
-      const count = await storeProcessedTestCases({
-        testCases: nonFlakyEntries,
+    if (filteredTestCases.length > 0) {
+      const count = await storeProcessedTestCases(
+        filteredTestCases,
         model,
-        datasetName,
-        numAttempts,
-      });
+        datasetName
+      );
       console.log(`📊 Stored ${count} entries to database`);
     }
     console.log(`✅ Successfully processed ${datasetName}`);
-    const filteredCount = sampledDataset.length - nonFlakyEntries.length;
+    const filteredCount = sampledDataset.length - filteredTestCases.length;
     const filteredPct = Math.round(
       (filteredCount / sampledDataset.length) * 100
     );
     console.log(`Filtered ${filteredCount} flaky entries (${filteredPct}%)`);
     const duplicatesRemoved =
-      existingEntries.length + nonFlakyEntries.length - combinedEntries.length;
+      existingEntries.length +
+      filteredTestCases.length -
+      combinedEntries.length;
     console.log(
       `Combined with ${existingEntries.length} existing entries, ` +
         `removed ${duplicatesRemoved} duplicates`

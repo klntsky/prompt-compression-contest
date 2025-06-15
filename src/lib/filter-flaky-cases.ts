@@ -1,4 +1,4 @@
-import { TestCase, evaluatePrompt } from './evaluate';
+import { TestCase, evaluatePrompt, TestCaseResult } from './evaluate';
 
 /**
  * Print progress report during test execution
@@ -36,9 +36,9 @@ export async function filterFlakyTestCases(params: {
   numAttempts?: number;
   model: string;
   verbose?: boolean;
-}): Promise<TestCase[]> {
+}): Promise<TestCaseResult[]> {
   const { dataset, numAttempts = 3, model, verbose = true } = params;
-  const nonFlakyEntries: TestCase[] = [];
+  const filteredTestCaseResults: TestCaseResult[] = [];
   let totalProcessed = 0;
   const failedOnAttempt = Array(numAttempts).fill(0);
   if (verbose) {
@@ -47,15 +47,15 @@ export async function filterFlakyTestCases(params: {
     );
   }
   for (const entry of dataset) {
-    totalProcessed++;
     // Use evaluatePrompt from evaluate.ts to test if the case is flaky
     const result = await evaluatePrompt({
       testCase: entry,
       attempts: numAttempts,
       model,
     });
-    if (result) {
-      nonFlakyEntries.push(entry);
+    totalProcessed++;
+    if (result?.passed) {
+      filteredTestCaseResults.push({ testCase: entry, result: result });
     } else {
       // If it failed, we don't know exactly which attempt it failed on from the current API
       // For now, increment the first attempt failure count
@@ -67,7 +67,7 @@ export async function filterFlakyTestCases(params: {
         totalProcessed,
         dataset.length,
         failedOnAttempt,
-        nonFlakyEntries.length,
+        filteredTestCaseResults.length,
         numAttempts
       );
     }
@@ -75,5 +75,5 @@ export async function filterFlakyTestCases(params: {
   if (verbose) {
     console.log();
   }
-  return nonFlakyEntries;
+  return filteredTestCaseResults;
 }
