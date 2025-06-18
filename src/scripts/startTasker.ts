@@ -1,7 +1,10 @@
 import { startTasker } from '../lib/tasker';
+import AppDataSource from '../api/data-source';
+import { evaluateCompression } from '@/lib/evaluate';
 
 async function main() {
-  await startTasker();
+  await AppDataSource.initialize();
+  await startTasker(evaluateCompression);
 }
 
 main().catch(error => {

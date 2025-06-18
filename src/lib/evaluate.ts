@@ -52,6 +52,18 @@ export interface TestCompressionResult {
 }
 
 /**
+ * Interface for the params of compression evaluation
+ */
+export interface EvaluateCompressionParams {
+  testCase: TestCase;
+  uncompressedTotalTokens: number;
+  compressingPrompt: string;
+  compressionModel: string;
+  evaluationModel: string;
+  attemptsPerTest?: number;
+}
+
+/**
  * Creates and configures an OpenAI client with OpenRouter
  * @returns {OpenAI} Configured OpenAI client
  */
@@ -253,14 +265,9 @@ export async function getCompressedTask(params: {
  * @param params Parameters for evaluating the compression
  * @returns A detailed result of the compression evaluation
  */
-export async function evaluateCompression(params: {
-  testCase: TestCase;
-  uncompressedTotalTokens: number;
-  compressingPrompt: string;
-  compressionModel: string;
-  evaluationModel: string;
-  attemptsPerTest?: number;
-}): Promise<TestCompressionResult> {
+export async function evaluateCompression(
+  params: EvaluateCompressionParams
+): Promise<TestCompressionResult> {
   const {
     testCase,
     uncompressedTotalTokens,

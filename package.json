@@ -6,11 +6,9 @@
   "description": "",
   "main": "dist/api/index.js",
   "scripts": {
-    "test": "mocha test/**/*.spec.mjs",
     "build:dataset": "pnpm run dataset:parse && pnpm run dataset:process",
     "dataset:parse": "node src/tools/prepare-dataset/commonsense_qa_parse.js && node src/tools/prepare-dataset/mmlu_parse.js",
     "dataset:process": "tsx src/tools/process.ts",
-    "dev:api": "nodemon --exec 'tsx --import=reflect-metadata --import=source-map-support/register src/api/index.ts'",
     "typeorm": "typeorm-ts-node-esm -d src/api/data-source.ts",
     "migration:generate": "pnpm run typeorm migration:generate ./src/api/migrations/migration",
     "migration:run": "pnpm run typeorm migration:run",
@@ -23,7 +21,9 @@
     "fix": "pnpm format && pnpm lint:fix",
     "clean": "rimraf dist",
     "build": "pnpm run clean && tsc --project tsconfig.json",
-    "start": "tsx dist/api/index.js"
+    "start": "tsx src/api/index.ts",
+    "test:api": "mocha test/**/api.spec.mjs",
+    "test:tasker": "tsx src/test/tasker.test.ts"
   },
   "keywords": [],
   "author": "klntsky",

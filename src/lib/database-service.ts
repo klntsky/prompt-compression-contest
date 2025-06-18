@@ -1,7 +1,9 @@
+import { Attempt } from '@/api/entities/attempt.js';
 import AppDataSource from '../api/data-source.js';
 import { Test } from '../api/entities/test.js';
 import type { TestCaseResult } from './evaluate.js';
 import stringify from 'fast-json-stable-stringify';
+import { TestResultStatus } from '@/api/entities/test-result.js';
 
 // Module-level state
 let isInitialized = false;
@@ -58,6 +60,63 @@ export async function storeProcessedTestCases(
     skipUpdateIfNoValuesChanged: true, // Recommended for ON CONFLICT DO NOTHING behavior
   });
   return result.identifiers.length;
+}
+
+// Find the oldest pending attempt that still has tests to run.
+export async function getUntestedAttempt(): Promise<Attempt | null> {
+  const attemptRepo = AppDataSource.getRepository(Attempt);
+  return await attemptRepo
+    .createQueryBuilder('attempt')
+    .where('attempt.averageCompressionRatio IS NULL')
+    .andWhere(
+      'NOT EXISTS (SELECT 1 FROM test_result tr WHERE tr.attempt_id = attempt.id AND tr.status = :status)',
+      { status: TestResultStatus.FAILED }
+    )
+    .orderBy('attempt.timestamp', 'ASC')
+    .getOne();
+}
+
+// Find all active tests for the current attempt that don't have a result yet.
+export async function getTestsToProcess(attempt: Attempt): Promise<Test[]> {
+  const testRepo = AppDataSource.getRepository(Test);
+  const testsToProcess = await testRepo
+    .createQueryBuilder('test')
+    .leftJoin('test.testResults', 'tr', 'tr.attempt_id = :attemptId', {
+      attemptId: attempt.id,
+    })
+    .where('test.isActive = true')
+    .andWhere('(tr.attempt_id IS NULL OR tr.status = :status)', {
+      status: TestResultStatus.PENDING,
+    })
+    .getMany();
+  if (testsToProcess.length === 0) {
+    console.log(`Attempt ${attempt.id} has no more tests to process.`);
+    return [];
+  }
+  console.log(
+    `Found ${testsToProcess.length} tests to process for attempt ${attempt.id}`
+  );
+  return testsToProcess;
+}
+
+// Aggregate the results of the attempt.
+export async function aggregateResults(
+  testsPassed: number,
+  totalCompressionRatio: number,
+  attempt: Attempt
+): Promise<void> {
+  try {
+    const attemptRepo = AppDataSource.getRepository(Attempt);
+    const averageCompressionRatio =
+      testsPassed > 0 ? totalCompressionRatio / testsPassed : 0;
+    attempt.averageCompressionRatio = averageCompressionRatio;
+    await attemptRepo.save(attempt);
+    console.log(
+      `Attempt ${attempt.id} has been fully processed and aggregated.`
+    );
+  } catch (error) {
+    console.error(`Failed to aggregate attempt ${attempt.id}:`, error);
+  }
 }
 
 /**

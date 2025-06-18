@@ -1,13 +1,23 @@
 import 'dotenv/config';
 import AppDataSource from '../api/data-source.js';
 import { Attempt } from '../api/entities/attempt.js';
-import { Test } from '../api/entities/test.js';
 import { TestResult, TestResultStatus } from '../api/entities/test-result.js';
 import { evaluateCompression } from './evaluate.js';
+import { getTestsToProcess, getUntestedAttempt } from './database-service.js';
+import { aggregateResults } from './database-service.js';
+
+class TestEvaluationFailedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'TestEvaluationFailedError';
+  }
+}
 
 const POLL_INTERVAL = process.env.TASKER_POLL_INTERVAL
   ? parseInt(process.env.TASKER_POLL_INTERVAL, 10)
   : 5000;
+
+let failureCount = 0;
 
 /**
  * Finds all active tests that do not have a result for the given attempt and
@@ -21,29 +31,24 @@ const POLL_INTERVAL = process.env.TASKER_POLL_INTERVAL
  *
  * @param attempt The attempt context, containing the compressing prompt and model information.
  */
-async function processAttempt(attempt: Attempt): Promise<void> {
+async function processAttempt(
+  attempt: Attempt,
+  evaluateCompressionFunction: typeof evaluateCompression,
+  simulateFailure?: boolean
+): Promise<void> {
   console.log(`Processing attempt ${attempt.id}`);
-  const testRepo = AppDataSource.getRepository(Test);
+  const testsToProcess = await getTestsToProcess(attempt);
   const testResultRepo = AppDataSource.getRepository(TestResult);
-  // Find all active tests for the current attempt that don't have a result yet.
-  const testsToProcess = await testRepo
-    .createQueryBuilder('test')
-    .leftJoin('test.testResults', 'tr', 'tr.attempt_id = :attemptId', {
-      attemptId: attempt.id,
-    })
-    .where('test.isActive = true')
-    .andWhere('tr.attempt_id IS NULL')
-    .getMany();
-  if (testsToProcess.length === 0) {
-    console.log(`Attempt ${attempt.id} has no more tests to process.`);
-    return;
-  }
-  console.log(
-    `Found ${testsToProcess.length} tests to process for attempt ${attempt.id}`
+  // Account for tests that have already passed in a previous, failed run.
+  const existingResults = await testResultRepo.find({
+    where: { attemptId: attempt.id, status: TestResultStatus.VALID },
+  });
+  let testsPassed = existingResults.length;
+  let totalCompressionRatio = existingResults.reduce(
+    (sum, result) => sum + (result.compressionRatio || 0),
+    0
   );
   // Process each test in a loop.
-  let testsPassed = 0;
-  let totalCompressionRatio = 0;
   for (const test of testsToProcess) {
     console.log(`Processing test ${test.id} for attempt ${attempt.id}`);
     // Create a preliminary test result to "lock" the test and prevent other
@@ -62,7 +67,7 @@ async function processAttempt(attempt: Attempt): Promise<void> {
       continue;
     }
     try {
-      const result = await evaluateCompression({
+      const result = await evaluateCompressionFunction({
         testCase: { id: test.id, ...JSON.parse(test.payload) },
         uncompressedTotalTokens: test.totalTokens || 0,
         compressingPrompt: attempt.compressingPrompt,
@@ -84,31 +89,25 @@ async function processAttempt(attempt: Attempt): Promise<void> {
           `Successfully processed test ${test.id} for attempt ${attempt.id}`
         );
       } else {
-        throw new Error('Test evaluation failed');
+        throw new TestEvaluationFailedError('Test evaluation failed');
       }
     } catch (error) {
       console.error(
         `Failed to process test ${test.id} for attempt ${attempt.id}:`,
         error
       );
-      testResult.status = TestResultStatus.FAILED;
-      await testResultRepo.save(testResult);
+      if (error instanceof TestEvaluationFailedError) {
+        testResult.status = TestResultStatus.FAILED;
+        await testResultRepo.save(testResult);
+      }
       return;
     }
   }
-  // Aggregate the results of the attempt.
-  try {
-    const attemptRepo = AppDataSource.getRepository(Attempt);
-    const averageCompressionRatio =
-      testsPassed > 0 ? totalCompressionRatio / testsPassed : 0;
-    attempt.averageCompressionRatio = averageCompressionRatio;
-    await attemptRepo.save(attempt);
-    console.log(
-      `Attempt ${attempt.id} has been fully processed and aggregated.`
-    );
-  } catch (error) {
-    console.error(`Failed to aggregate attempt ${attempt.id}:`, error);
+  if (simulateFailure && failureCount === 0) {
+    failureCount++;
+    throw new Error('Simulated failure!');
   }
+  await aggregateResults(testsPassed, totalCompressionRatio, attempt);
 }
 
 /**
@@ -120,43 +119,28 @@ async function processAttempt(attempt: Attempt): Promise<void> {
  * 3. Aggregates the results once the attempt is fully processed.
  * 4. If no attempts left waits for a defined interval before starting the next cycle.
  */
-export async function startTasker() {
-  await AppDataSource.initialize();
+export async function startTasker(
+  evaluateCompressionFunction: typeof evaluateCompression,
+  simulateFailure?: boolean
+) {
   console.log('Tasker started, connected to DB.');
   while (true) {
     try {
-      const attemptRepo = AppDataSource.getRepository(Attempt);
-      const testRepo = AppDataSource.getRepository(Test);
-      const activeTestsCount = await testRepo.count({
-        where: { isActive: true },
-      });
-      const attempt = await attemptRepo
-        .createQueryBuilder('attempt')
-        .leftJoin('attempt.testResults', 'testResult')
-        .leftJoin('testResult.test', 'test', 'test.isActive = true')
-        .leftJoin(
-          'attempt.testResults',
-          'failedTestResult',
-          'failedTestResult.status = :status',
-          { status: TestResultStatus.FAILED }
-        )
-        .where('attempt.averageCompressionRatio IS NULL')
-        .andWhere('failedTestResult.id IS NULL')
-        .groupBy('attempt.id')
-        .having('COUNT(DISTINCT test.id) < :activeTestsCount', {
-          activeTestsCount,
-        })
-        .orderBy('attempt.timestamp', 'ASC')
-        .getOne();
+      const attempt = await getUntestedAttempt();
       if (attempt) {
-        await processAttempt(attempt);
+        await processAttempt(
+          attempt,
+          evaluateCompressionFunction,
+          simulateFailure
+        );
       } else {
         console.log('No pending attempts found, waiting for next poll.');
-        await AppDataSource.destroy();
         await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
       }
     } catch (error) {
       console.error('An error occurred in the tasker loop:', error);
+      console.log('Waiting after error before retrying...');
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
     }
   }
 }
